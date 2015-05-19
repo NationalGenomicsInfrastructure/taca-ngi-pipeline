@@ -1,0 +1,19 @@
+language: python
+
+python:
+    - "2.7"
+
+before_install:
+    - export CHARON_BASE_URL=""
+    - export CHARON_API_TOKEN=""
+    - mkdir /home/travis/.ngipipeline
+    - "echo foo: bar > /home/travis/.ngipipeline/ngi_config.yaml"
+
+install:
+    - python setup.py install
+
+script:
+    - cd tests && nosetests -v -s
+
+notifications:
+    email: false
