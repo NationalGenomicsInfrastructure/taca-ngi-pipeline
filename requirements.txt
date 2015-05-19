@@ -1,6 +1,5 @@
 click
 requests
 pyyaml
-mock
 taca
 ngi_pipeline
