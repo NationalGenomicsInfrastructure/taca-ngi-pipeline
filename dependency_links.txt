@@ -1,0 +1,3 @@
+https://github.com/SciLifeLab/statusdb/archive/master.zip#egg=statusdb
+https://github.com/NationalGenomicsInfrastructure/ngi_pipeline/archive/devel.zip#egg=ngi_pipeline
+https://github.com/SciLifeLab/TACA/archive/master.zip#egg=taca

@@ -1,0 +1,5 @@
+click
+requests
+pyyaml
+taca
+ngi_pipeline
