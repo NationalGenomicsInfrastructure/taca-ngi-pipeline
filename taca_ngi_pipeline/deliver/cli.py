@@ -86,7 +86,7 @@ def _exec_delivery(deliver_obj,deliver_fn):
                         str(deliver_fn),
                         str(e)
                     ),
-                recipient=d.config.get('operator'))
+                recipient=deliver_obj.config.get('operator'))
         except Exception as me:
             logger.error(
                 "delivering {} failed - reason: {}, but operator {} could not "\

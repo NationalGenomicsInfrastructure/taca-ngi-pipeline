@@ -1,0 +1,64 @@
+log:
+    log_file: data/taca.log
+
+deliver:
+    analysispath: data/ANALYSIS/_PROJECTID_
+    datapath: data/DATA/_PROJECTID_
+    stagingpath: data/STAGING/_PROJECTID_
+    deliverypath: data/DELIVERY
+    operator: operator@domain.com
+    files_to_deliver:
+        -
+            - _ANALYSISPATH_/piper_ngi/logs/version_report.txt
+            - _STAGINGPATH_/00-Reports
+        -
+            - _ANALYSISPATH_/piper_ngi/delivery/projects/_SAMPLEID__ign_sample_report.html
+            - _STAGINGPATH_/00-Reports
+        -
+            - _ANALYSISPATH_/piper_ngi/delivery/projects/_SAMPLEID__ign_sample_report.pdf
+            - _STAGINGPATH_/00-Reports
+        -
+            - _ANALYSISPATH_/piper_ngi/delivery/projects/plots/_SAMPLEID_
+            - _STAGINGPATH_/00-Reports
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID__*_snpEff_summary.*
+            - _STAGINGPATH_/00-Reports
+        -
+            - _ANALYSISPATH_/piper_ngi/06_final_alignment_qc/_SAMPLEID_.clean.dedup.recal.qc
+            - _STAGINGPATH_/_SAMPLEID_/01-QC
+        -
+            - _ANALYSISPATH_/piper_ngi/05_processed_alignments/_SAMPLEID_.metrics
+            - _STAGINGPATH_/_SAMPLEID_/01-QC
+        -
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.snp.eval
+            - _STAGINGPATH_/_SAMPLEID_/01-QC
+        -
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.indel.eval
+            - _STAGINGPATH_/_SAMPLEID_/01-QC
+        - 
+            - _ANALYSISPATH_/piper_ngi/03_genotype_concordance/concordance-check-result-file-should-go-here
+            - _STAGINGPATH_/_SAMPLEID_/01-QC
+        -
+            - _DATAPATH_/_SAMPLEID_/*/*
+            - _STAGINGPATH_/_SAMPLEID_/02-FASTQ
+        -
+            - _ANALYSISPATH_/piper_ngi/05_processed_alignments/_SAMPLEID_.clean.dedup.recal.ba[im]
+            - _STAGINGPATH_/_SAMPLEID_/03-BAM
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.genomic.vcf
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.genomic.vcf.idx
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.recalibrated.indel.annotated.vcf
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.recalibrated.indel.annotated.vcf.idx
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.recalibrated.snp.annotated.vcf
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF
+        - 
+            - _ANALYSISPATH_/piper_ngi/07_variant_calls/_SAMPLEID_.clean.dedup.recal.bam.recalibrated.snp.annotated.vcf.idx
+            - _STAGINGPATH_/_SAMPLEID_/04-VCF

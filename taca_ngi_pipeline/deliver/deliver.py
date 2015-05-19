@@ -144,20 +144,21 @@ class Deliverer(object):
             return (sourcepath,destpath,hash)
                     
         for sfile, dfile in getattr(self,'files_to_deliver',[]):
+            dest_path = self.expand_path(dfile)
             for f in glob.iglob(self.expand_path(sfile)):
                 if (os.path.isdir(f)):
+                    fparent = os.path.dirname(f)
                     # walk over all folders and files below
                     for pdir,_,files in os.walk(f):
                         for current in files:
                             fpath = os.path.join(pdir,current)
                             # use the relative path for the destination path
-                            fname = os.path.relpath(fpath,f)
+                            fname = os.path.relpath(fpath,fparent)
                             yield get_hash(fpath,
-                                os.path.join(self.expand_path(dfile),fname))
+                                os.path.join(dest_path,fname))
                 else:
-                    yield get_hash(f, 
-                        os.path.join(
-                            self.expand_path(dfile),os.path.basename(f)))
+                    yield get_hash(f,
+                        os.path.join(dest_path,os.path.basename(f)))
     
     def stage_delivery(self):
         """ Stage a delivery by symlinking source paths to destination paths 
