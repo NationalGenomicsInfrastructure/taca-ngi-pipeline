@@ -1,5 +1,5 @@
 click
 requests
 pyyaml
-taca
+taca>=0.1.9
 ngi_pipeline
