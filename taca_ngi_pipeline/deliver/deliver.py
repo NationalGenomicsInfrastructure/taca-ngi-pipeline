@@ -144,13 +144,18 @@ class Deliverer(object):
             digest = None
             if not self.no_checksum:
                 checksumpath = "{}.{}".format(sourcepath,self.hash_algorithm)
-                if not os.path.exists(checksumpath):
-                    digest = hashfile(sourcepath,hasher=self.hash_algorithm)
-                    with open(checksumpath,'w') as fh:
-                        fh.write(digest)
-                else:
+                try:
                     with open(checksumpath,'r') as fh:
                         digest = fh.next()
+                except IOError as re:
+                    digest = hashfile(sourcepath,hasher=self.hash_algorithm)
+                    try:
+                        with open(checksumpath,'w') as fh:
+                            fh.write(digest)
+                    except IOError as we:
+                        logger.warning(
+                            "could not write checksum {} to file {}:" \
+                            " {}".format(digest,checksumpath,we))
             return (sourcepath,destpath,digest)
             
         def _walk_files(currpath, destpath):
@@ -178,7 +183,12 @@ class Deliverer(object):
                     # ignore checksum files
                     if not spath.endswith(".{}".format(self.hash_algorithm)):
                         matches += 1
-                        yield _get_digest(spath,dpath)
+                        # skip and warn if a path does not exist, this includes broken symlinks
+                        if os.path.exists(spath):
+                            yield _get_digest(spath,dpath)
+                        else:
+                            logger.warning("path {} does not exist, possibly " \
+                                "because of a broken symlink".format(spath))
             if matches == 0:
                 logger.warning("no files matching search expression '{}' "\
                     "found ".format(src_path))

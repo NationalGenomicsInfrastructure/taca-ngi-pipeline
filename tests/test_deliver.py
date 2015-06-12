@@ -1,5 +1,6 @@
 """ Unit tests for the deliver commands """
 
+import __builtin__
 import mock
 import os
 import shutil
@@ -199,27 +200,50 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][5]
         self.deliverer.files_to_deliver = [pattern]
         # create a checksum file and assert that it was used as a cache
-        exp_checksum = "this checksum should be cached"
         checksumfile = "{}.{}".format(
             self.deliverer.expand_path(pattern[0]),
             self.deliverer.hash_algorithm)
+        exp_checksum = "this checksum should be cached"
         with open(checksumfile,'w') as fh:
             fh.write(exp_checksum)
         for _,_,obs_checksum in self.deliverer.gather_files():
             self.assertEqual(
                 obs_checksum,
                 exp_checksum,
-                "checksum '{}' from cache file was not picked up: '{}'".format(obs_checksum,exp_checksum))
-        # remove the checksum file and assert that it is created
+                "checksum '{}' from cache file was not picked up: '{}'".format(
+                    obs_checksum,exp_checksum))
         os.unlink(checksumfile)
-        for _,_,exp_checksum in self.deliverer.gather_files():
+        # assert that the checksum file is created as expected
+        for spath,_,exp_checksum in self.deliverer.gather_files():
+            cheksumfile = "{}.{}".format(spath,self.deliverer.hash_algorithm)
             self.assertTrue(os.path.exists(checksumfile),
                 "checksum cache file was not created")
             with open(checksumfile,'r') as fh:
                 obs_checksum = fh.next()
             self.assertEqual(obs_checksum,exp_checksum,
                 "cached and returned checksums did not match")
-        
+            os.unlink(checksumfile)
+        # ensure that a thrown IOError when writing checksum cache file is handled gracefully
+        # do a double mock to mask hashfile's call to open builtin
+        with mock.patch.object(
+            __builtin__,
+            'open',
+            side_effect=IOError("mocked IOError")) as iomock, mock.patch.object(
+                deliver,
+                'hashfile',
+                return_value="mocked-digest"
+            ) as digestmock:
+            for spath,_,obs_checksum in self.deliverer.gather_files():
+                cheksumfile = "{}.{}".format(
+                    spath,self.deliverer.hash_algorithm)
+                self.assertFalse(os.path.exists(checksumfile),
+                    "checksum cache file should not have been created")
+                self.assertTrue(iomock.call_count == 2,"open should have been "\
+                    "called twice on checksum cache file")
+                self.assertEqual(
+                    "mocked-digest",
+                    obs_checksum,"observed cheksum doesn't match expected")
+
     def test_gather_files7(self):
         """ Traverse folders also if they are symlinks """
         dest_path = self.deliverer.expand_path(
@@ -264,7 +288,22 @@ class TestDeliverer(unittest.TestCase):
         self.assertItemsEqual(
             [obs for obs in self.deliverer.gather_files()],
             expected)
-    
+
+    def test_gather_files9(self):
+        """ Do not attempt to process broken symlinks """
+        expected = []
+        pattern = SAMPLECFG['deliver']['files_to_deliver'][5]
+        spath = self.deliverer.expand_path(pattern[0])
+        os.unlink(spath)
+        os.symlink(
+            os.path.join(
+                os.path.dirname(spath),
+                "this-file-does-not-exist"),
+            spath)
+        self.deliverer.files_to_deliver = [pattern]
+        observed = [p for p,_,_ in self.deliverer.gather_files()]
+        self.assertItemsEqual(observed,expected)
+
     def test_stage_delivery1(self):
         """ The correct folder structure should be created and exceptions 
             handled gracefully
