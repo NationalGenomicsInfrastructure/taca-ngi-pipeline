@@ -183,7 +183,12 @@ class Deliverer(object):
                     # ignore checksum files
                     if not spath.endswith(".{}".format(self.hash_algorithm)):
                         matches += 1
-                        yield _get_digest(spath,dpath)
+                        # skip and warn if a path does not exist, this includes broken symlinks
+                        if os.path.exists(spath):
+                            yield _get_digest(spath,dpath)
+                        else:
+                            logger.warning("path {} does not exist, possibly " \
+                                "because of a broken symlink".format(spath))
             if matches == 0:
                 logger.warning("no files matching search expression '{}' "\
                     "found ".format(src_path))

@@ -288,7 +288,22 @@ class TestDeliverer(unittest.TestCase):
         self.assertItemsEqual(
             [obs for obs in self.deliverer.gather_files()],
             expected)
-    
+
+    def test_gather_files9(self):
+        """ Do not attempt to process broken symlinks """
+        expected = []
+        pattern = SAMPLECFG['deliver']['files_to_deliver'][5]
+        spath = self.deliverer.expand_path(pattern[0])
+        os.unlink(spath)
+        os.symlink(
+            os.path.join(
+                os.path.dirname(spath),
+                "this-file-does-not-exist"),
+            spath)
+        self.deliverer.files_to_deliver = [pattern]
+        observed = [p for p,_,_ in self.deliverer.gather_files()]
+        self.assertItemsEqual(observed,expected)
+
     def test_stage_delivery1(self):
         """ The correct folder structure should be created and exceptions 
             handled gracefully
