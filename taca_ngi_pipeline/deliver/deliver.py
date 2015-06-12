@@ -144,13 +144,18 @@ class Deliverer(object):
             digest = None
             if not self.no_checksum:
                 checksumpath = "{}.{}".format(sourcepath,self.hash_algorithm)
-                if not os.path.exists(checksumpath):
-                    digest = hashfile(sourcepath,hasher=self.hash_algorithm)
-                    with open(checksumpath,'w') as fh:
-                        fh.write(digest)
-                else:
+                try:
                     with open(checksumpath,'r') as fh:
                         digest = fh.next()
+                except IOError as re:
+                    digest = hashfile(sourcepath,hasher=self.hash_algorithm)
+                    try:
+                        with open(checksumpath,'w') as fh:
+                            fh.write(digest)
+                    except IOError as we:
+                        logger.warning(
+                            "could not write checksum {} to file {}:" \
+                            " {}".format(digest,checksumpath,we))
             return (sourcepath,destpath,digest)
             
         def _walk_files(currpath, destpath):
