@@ -1,4 +1,4 @@
-""" Main in taca_ngi_pipeline module
+""" Main taca_ngi_pipeline module
 """
 
-__version__ = '0.4.2'
+__version__ = '0.4.3'
