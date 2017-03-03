@@ -9,6 +9,7 @@ before_install:
     - mkdir /home/travis/.ngipipeline
     - "echo foo: bar > /home/travis/.ngipipeline/ngi_config.yaml"
     - pip install setuptools --upgrade
+    - pip install pip --upgrade
 install:
     - python setup.py install
 
