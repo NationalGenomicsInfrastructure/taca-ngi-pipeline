@@ -639,7 +639,7 @@ class TestSampleDeliverer(unittest.TestCase):
             **SAMPLECFG['deliver'])
         self.assertEquals(deliverer.uppnexid, PROJECTENTRY['uppnex_id'])
         #two calls, one for projectname one for uppnexid
-        assert 2 == dbmock.call_count - prior
+        self.assertEquals(dbmock.call_count-prior, 2)
 
     @mock.patch.object(
         deliver.db.db.CharonSession,
