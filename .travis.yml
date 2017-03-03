@@ -8,7 +8,9 @@ before_install:
     - export CHARON_API_TOKEN="charonapitokengoeshere"
     - mkdir /home/travis/.ngipipeline
     - "echo foo: bar > /home/travis/.ngipipeline/ngi_config.yaml"
+    - pip install pip --upgrade
     - pip install setuptools --upgrade
+    - pip install pyexcel
 install:
     - python setup.py install
 

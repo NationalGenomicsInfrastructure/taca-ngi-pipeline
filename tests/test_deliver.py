@@ -628,16 +628,19 @@ class TestSampleDeliverer(unittest.TestCase):
             uppnexid="this-is-the-uppnexid",
             **SAMPLECFG['deliver'])
         self.assertEquals(deliverer.uppnexid, "this-is-the-uppnexid")
-        self.assertFalse(dbmock.called,
-                         "the database should not have been queried")
+        #called once due to projectname
+        dbmock.assert_called_once_with(self.projectid)
         # if an uppnexid is not supplied in the config, the database should be consulted
+        dbmock.reset_mock()
+        prior = dbmock.call_count
         deliverer = deliver.SampleDeliverer(
             self.projectid,
             self.sampleid,
             rootdir=self.casedir,
             **SAMPLECFG['deliver'])
         self.assertEquals(deliverer.uppnexid, PROJECTENTRY['uppnex_id'])
-        dbmock.assert_called_once_with(self.projectid)
+        #two calls, one for projectname one for uppnexid
+        self.assertEquals(dbmock.call_count, 2)
 
     @mock.patch.object(
         deliver.db.db.CharonSession,
