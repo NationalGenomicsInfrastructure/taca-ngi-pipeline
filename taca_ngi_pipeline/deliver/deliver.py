@@ -91,7 +91,7 @@ class Deliverer(object):
         try:
             n = db.project_entry(db.dbcon(), projectid)['name']
             self.projectname = n
-         except KeyError:
+        except KeyError:
             pass
         # only set an attribute for uppnexid if it's actually given or in the db
         try:
