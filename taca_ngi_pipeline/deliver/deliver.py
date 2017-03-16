@@ -87,15 +87,17 @@ class Deliverer(object):
         self.reportpath = getattr(self, 'reportpath', None)
         self.force = getattr(self, 'force', False)
         self.stage_only = getattr(self, 'stage_only', False)
-        self.projectname = None
-        #Fetches a project name, should always be availble; but is not a requirement
+
+        #Fetch parameters from command line; if not available try calling database
+	try:
+	    self.projectname = getattr(self, 'projectname')
+	except AttributeError:
+            try:
+                self.projectname = getattr(db.project_entry(db.dbcon(), projectid), 'name')
+            except KeyError:
+  		pass
         try:
-            self.projectname = getattr(db.project_entry(db.dbcon(), projectid), 'name')
-        except KeyError:
-            pass
-        # only set an attribute for uppnexid if it's actually given or in the db
-        try:
-            getattr(self, 'uppnexid')
+            self.uppnexid = getattr(self, 'uppnexid')
         except AttributeError:
             try:
                 self.uppnexid = getattr(db.project_entry(db.dbcon(), projectid), 'uppnexid', None)
