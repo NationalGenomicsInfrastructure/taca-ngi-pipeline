@@ -1,4 +1,4 @@
-"""
+""
     Module for controlling deliveries of samples and projects
 """
 import datetime
@@ -87,20 +87,17 @@ class Deliverer(object):
         self.reportpath = getattr(self, 'reportpath', None)
         self.force = getattr(self, 'force', False)
         self.stage_only = getattr(self, 'stage_only', False)
-
-        #Fetch parameters from command line; if not available try calling database
-	try:
-	    self.projectname = getattr(self, 'projectname')
-	except AttributeError:
-            try:
-                self.projectname = db.project_entry(db.dbcon(), projectid)['name']
-            except KeyError:
-  		pass
+        #Fetches a project name, should always be availble; but is not a requirement
+        try:
+            self.projectname = db.project_entry(db.dbcon(), projectid)['name']
+        except KeyError:
+            pass
+        # only set an attribute for uppnexid if it's actually given or in the db
         try:
             getattr(self, 'uppnexid')
         except AttributeError:
             try:
-                self.uppnexid = db.project_entry(db.dbcon(), projectid)['uppnexid']
+                self.uppnexid = db.project_entry(db.dbcon(), projectid)['uppnex_id']
             except KeyError:
                 pass
         # set a custom signal handler to intercept interruptions
