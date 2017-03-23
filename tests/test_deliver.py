@@ -631,6 +631,7 @@ class TestSampleDeliverer(unittest.TestCase):
         #called once due to projectname
         dbmock.assert_called_once_with(self.projectid)
         # if an uppnexid is not supplied in the config, the database should be consulted
+        dbmock.reset_mock()
         prior = dbmock.call_count
         deliverer = deliver.SampleDeliverer(
             self.projectid,
@@ -639,7 +640,7 @@ class TestSampleDeliverer(unittest.TestCase):
             **SAMPLECFG['deliver'])
         self.assertEquals(deliverer.uppnexid, PROJECTENTRY['uppnex_id'])
         #two calls, one for projectname one for uppnexid
-        self.assertEquals(dbmock.call_count-prior, 2)
+        self.assertEquals(dbmock.call_count, 2)
 
     @mock.patch.object(
         deliver.db.db.CharonSession,
