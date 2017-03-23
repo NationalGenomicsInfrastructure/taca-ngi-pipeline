@@ -93,14 +93,14 @@ class Deliverer(object):
 	    self.projectname = getattr(self, 'projectname')
 	except AttributeError:
             try:
-                self.projectname = getattr(db.project_entry(db.dbcon(), projectid), 'name')
+                self.projectname = db.project_entry(db.dbcon(), projectid)['name']
             except KeyError:
   		pass
         try:
-            self.uppnexid = getattr(self, 'uppnexid')
+            getattr(self, 'uppnexid')
         except AttributeError:
             try:
-                self.uppnexid = getattr(db.project_entry(db.dbcon(), projectid), 'uppnexid', None)
+                self.uppnexid = db.project_entry(db.dbcon(), projectid)['uppnexid']
             except KeyError:
                 pass
         # set a custom signal handler to intercept interruptions
