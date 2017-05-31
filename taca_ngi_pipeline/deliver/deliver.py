@@ -552,7 +552,7 @@ class SampleDeliverer(Deliverer):
                     #set it to delivered as ABORTED samples should not fail the status of a project
                     if  self.get_delivery_status(sampleentry):
                         #if status is set, then overwrite it to NOT_DELIVERED
-                        self.update_delivery_status(status="NOT DELIVERED")
+                        self.update_delivery_status(status="NOT_DELIVERED")
                     #otherwhise leave it empty. Return True as an aborted sample should not fail a delivery
                     return True
                 if self.get_sample_status(sampleentry) == 'FRESH' \
@@ -597,7 +597,7 @@ class SampleDeliverer(Deliverer):
                 self.update_delivery_status(status="STAGED")
             return True
         except DelivererInterruptedError:
-            self.update_delivery_status(status="NOT DELIVERED")
+            self.update_delivery_status(status="NOT_DELIVERED")
             raise
         except Exception:
             self.update_delivery_status(status="FAILED")
