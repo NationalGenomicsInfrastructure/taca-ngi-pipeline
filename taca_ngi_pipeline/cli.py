@@ -77,20 +77,34 @@ def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, forc
             default=None,
             type=click.STRING,
             help='pi-email, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email')
+@click.option('--include-project',
+            type=click.STRING,
+            multiple=True,
+            help='List of project that to be included in same delivery project')
+@click.option('--delivery-name',
+            default=None,
+            type=click.STRING,
+            help='A name for target directory in which all projects (main project and projects passed by "--include-project") will be hard staged')
 @click.option('--sensitive/--no-sensitive',
-            default = True,
+            default=True,
             help='flag to specify if data contained in the project is sensitive or not')
 @click.option('--hard-stage-only',
             is_flag=True,
-            default = False,
+            default=False,
             help='Perform all the delivery actions but does not run to_mover (to be used for semi-manual deliveries)')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False):
+def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, include_project=None, delivery_name=None, sensitive=True, hard_stage_only=False):
     """ Deliver the specified projects to the specified destination
     """
-    if ctx.parent.params['cluster'] == 'bianca':
-        if len(projectid) > 1:
+    if len(projectid) > 1:
+        if ctx.parent.params['cluster'] == 'bianca':
             logger.error("Only one project can be specified when delivering to Bianca. Specficied {} projects".format(len(projectid)))
+            return 1
+        elif len(projectid) != len(set(projectid)):
+            logger.error("Given project list '[{}]' have repeated project(s). Kindly double check the command".format(" ".join(projectid)))
+            return 1
+        elif len(include_project) > 0:
+            logger.error("Can not give '--include-project' ({}) while delivering multiple projects ({})".format(" ".join(include_project), " ".join(projectid)))
             return 1
     for pid in projectid:
         if ctx.parent.params['cluster'] == 'milou':
@@ -118,11 +132,24 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
                 return 1
             taca.utils.config.load_yaml_config(order_portal)
+            if len(include_project) > 0:
+                if pid in include_project:
+                    logger.error("Project {} is given as main project and also by '--include-project' ({})".format(pid, " ".join(include_project)))
+                    return 1
+                if delivery_name == None:
+                    delivery_name = "-".join(projectid + include_project)
+                    logger.warn("Project(s) are ({}) given by '--include-project' but no '--delivery-name' given. Will use '{}' as delivery name"
+                            .format(" ".join(include_project), delivery_name))
+            elif delivery_name != None:
+                logger.error("Option '--delivery-name' can be given only with '--include-project'")
+                return 1
             d = _deliver_grus.GrusProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
                 sensitive=sensitive,
                 hard_stage_only=hard_stage_only,
+                include_project=include_project,
+                delivery_name=delivery_name,
                 **ctx.parent.params)
         _exec_fn(d, d.deliver_project)
 

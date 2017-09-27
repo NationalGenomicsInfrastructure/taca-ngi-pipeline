@@ -27,8 +27,6 @@ from deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
 
 logger = logging.getLogger(__name__)
 
-
-
 yes = set(['yes','y', 'ye'])
 no = set(['no','n'])
 def proceed_or_not(question):
@@ -42,6 +40,7 @@ def proceed_or_not(question):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no'")
 
+
 def check_mover_version():
     cmd = ['moverinfo', '--version']
     output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
@@ -54,10 +53,11 @@ def check_mover_version():
         return False
     return True #if I am here this is mover/1.0.0 so I am finr
 
+
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, include_project=None, delivery_name=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -76,6 +76,8 @@ class GrusProjectDeliverer(ProjectDeliverer):
         self.pi_email  = pi_email
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
+        self.include_project = include_project
+        self.delivery_name = delivery_name        
 
 
     def get_delivery_status(self, dbentry=None):
@@ -97,6 +99,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL' #it means that the project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED' #last possible case is that the project is not delivered
 
+
     def check_mover_delivery_status(self):
         """ This function checks is project is under delivery. If so it waits until projects is delivered or a certain threshold is met
         """
@@ -105,10 +108,12 @@ class GrusProjectDeliverer(ProjectDeliverer):
              logger.error("Not delivering becouse wrong mover version detected")
              return False
         charon_status = self.get_delivery_status()
+
         # we don't care if delivery is not in progress
         if charon_status != 'IN_PROGRESS':
             logger.info("Project {} has no delivery token. Project is not being delivered at the moment".format(self.projectid))
             return
+
         # if it's 'IN_PROGRESS', checking moverinfo
         delivery_token = self.db_entry().get('delivery_token')
         logger.info("Project {} under delivery. Delivery token is {}. Starting monitoring:".format(self.projectid, delivery_token))
@@ -161,6 +166,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 else:
                     logger.warn("Project {} under delivery. Unexpected status-delivery returned by mover for delivery-token {}: {}".format(self.projectid, delivery_token, mover_status))
             time.sleep(900) #sleep for 15 minutes and then check again the status
+
         #I am here only if not_monitoring is True, that is only if mover status was delivered or the delivery is ongoing for more than 48h
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
             #fetch all samples that were under delivery
@@ -191,8 +197,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 self.update_delivery_status(status=delivery_status)
 
 
-
-
     def deliver_project(self):
         """ Deliver all samples in a project to grus
             :returns: True if all samples were delivered successfully, False if
@@ -203,52 +207,56 @@ class GrusProjectDeliverer(ProjectDeliverer):
              logger.error("Not delivering becouse wrong mover version detected")
              return False
         # moved this part from constructor, as we can create an object without running the delivery (e.g. to check_delivery_status)
-        #check if the project directory already exists, if so abort
+        if self.delivery_name != None:
+            self.stagingpathhard = os.path.join(os.path.split(self.stagingpathhard)[0], self.delivery_name)
         hard_stagepath = self.expand_path(self.stagingpathhard)
+        soft_stagepath = self.expand_path(self.stagingpath)
+        all_projects = {p:GrusProjectDeliverer(p) for p in (self.projectid,) + self.include_project}
+        #check if the project directory already exists, if so abort
         if os.path.exists(hard_stagepath):
             logger.error("In {} found already folder {}. No multiple mover deliveries are allowed".format(
                     hard_stagepath, self.projectid))
             raise DelivererInterruptedError("Hard Staged Folder already present")
-        #check that this project is not under delivery with mover already in this case stop delivery
-        if self.get_delivery_status() == 'DELIVERED' \
-                and not self.force:
-            logger.info("{} has already been delivered. This project will not be delivered again this time.".format(str(self)))
-            return True
-        elif self.get_delivery_status() == 'IN_PROGRESS':
-            logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(
-                    self.projectid))
-            raise DelivererInterruptedError("Proejct already under delivery with Mover")
-        elif self.get_delivery_status() == 'PARTIAL':
-            logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(str(self)))
-            if proceed_or_not("Do you want to proceed (yes/no): "):
-                logger.info("{} has already been partially delivered. User confirmed to proceed.".format(str(self)))
-            else:
-                logger.error("{} has already been partially delivered. User decided to not proceed.".format(str(self)))
-                return False
+        
+        #check that given project(s) is/are not under delivery with mover already in this case stop delivery
+        for _proj, _proj_deliver_object in all_projects.iteritems():
+            _proj_deliver_status = _proj_deliver_object.get_delivery_status()
+            if _proj_deliver_status == 'DELIVERED' \
+                    and not self.force:
+                logger.info("{} has already been delivered. This project will not be delivered again this time.".format(_proj))
+                return True
+            elif _proj_deliver_status == 'IN_PROGRESS':
+                logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(_proj))
+                self.projectid = _proj #use the current project id rather than main project id during exception raise
+                raise DelivererInterruptedError("Project already under delivery with Mover")
+            elif _proj_deliver_status == 'PARTIAL':
+                logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(_proj))
+                if proceed_or_not("Do you want to proceed (yes/no): "):
+                    logger.info("{} has already been partially delivered. User confirmed to proceed.".format(_proj))
+                else:
+                    logger.error("{} has already been partially delivered. User decided to not proceed.".format(_proj))
+                    return False
+
         #now check if the sensitive flag has been set in the correct way
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
         if not self.sensitive:
             question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
         if proceed_or_not(question):
-            logger.info("Delivering {} to GRUS with mover. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
+            logger.info("Proceeding with delivery of {} to GRUS with mover. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
         else:
             logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
             return False
-        #now start with the real work
-        status = True
-        #otherwise lock the delivery by creating the folder
-        create_folder(hard_stagepath)
-        #now find the PI mail which is needed to create the delivery project
-        if self.pi_email is None:
-            try:
-                self.pi_email = self._get_pi_email()
-                logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
-            except Exception, e:
-                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
-                # print the traceback, not only error message -> isn't it something more useful?
-                logger.exception(e)
-                status = False
-                return status
+        
+        #now find the PI mail which is needed to create the delivery projects        if self.pi_email is None:
+        try:
+            self.pi_email = self._get_pi_email()
+            logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
+        except Exception, e:
+            logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
+            # print the traceback, not only error message -> isn't it something more useful?
+            logger.exception(e)
+            status = False
+            return status
         else:
             logger.warning("email for PI for project {} specified by user: {}".format(self.projectid,
                         self.pi_email))
@@ -263,34 +271,86 @@ class GrusProjectDeliverer(ProjectDeliverer):
             status = False
             return status
         
+        #check the source directory and list the files that will be hard staged/delivered
         # connect to charon, return list of sample objects that have been staged
-        try:
-            samples_to_deliver = self.get_samples_from_charon(delivery_status="STAGED")
-        except Exception, e:
-            logger.error("Cannot get samples from Charon. Error says: {}".format(str(e)))
-            logger.exception(e)
-            exit(1)
-        if len(samples_to_deliver) == 0:
-            logger.warning('No staged samples found in Charon')
-            raise AssertionError('No staged samples found in Charon')
-
-        hard_staged_samples = []
-        for sample_id in samples_to_deliver:
+        question = "\nFollowing data will be delivered, go through list carefully and accept it if right. Cancel the delivery and cleanup "\
+                   "before proceeding if there are unintended files\n"
+        data_to_deliver = {}
+        for _proj, _proj_deliver_object in all_projects.iteritems():
+            _proj_soft_stagepath = _proj_deliver_object.expand_path(_proj_deliver_object.stagingpath)
+            misc_to_deliver = []
             try:
-                sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
-                sample_deliverer.deliver_sample()
+                samples_to_deliver = _proj_deliver_object.get_samples_from_charon(delivery_status="STAGED")
             except Exception, e:
-                logger.error('Sample {} has not been hard staged. Error says: {}'.format(sample_id, e))
+                logger.error("Cannot get samples from Charon. Error says: {}".format(str(e)))
                 logger.exception(e)
                 exit(1)
-            else:
-                hard_staged_samples.append(sample_id)
-        if len(samples_to_deliver) != len(hard_staged_samples):
-            # Something unexpected happend, terminate
-            logger.warning('Not all the samples have been hard staged. Terminating')
-            raise AssertionError('len(samples_to_deliver) != len(hard_staged_samples): {} != {}'.format(len(samples_to_deliver),
-                                                                                                        len(hard_staged_samples)))
-        # create a delivery project id
+            if len(samples_to_deliver) == 0:
+                logger.warning('No staged samples found in Charon')
+                self.projectid = _proj #use the current project id rather than main project id during exception raise
+                raise AssertionError('No staged samples found in Charon')
+            items_in_stagepath = os.listdir(_proj_soft_stagepath)
+            for itm in items_in_stagepath:
+                base_name, ext_format = os.path.splitext(itm)
+                if base_name in samples_to_deliver:
+                    continue
+                misc_to_deliver.append(itm)
+            data_to_deliver[_proj] = {'samples':samples_to_deliver, 'misc':misc_to_deliver}
+            question += "\nProject stagepath: {}\nSamples: {}\nMiscellaneous: {}\n".format(_proj_soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
+        question += "\nProceed with delivery ? "
+        if proceed_or_not(question):
+            logger.info("Proceeding with delivery of {}".format(str(self), self.sensitive))
+        else:
+            logger.error("Aborsting delivery for {}, remove unwanted files and try again".format(str(self)))
+            return False
+        
+        #now start with the real work
+        status = True
+        #otherwise lock the delivery by creating the folder
+        create_folder(hard_stagepath)
+        
+        for _proj, _proj_data in data_to_deliver.iteritems():
+            samples_to_deliver = _proj_data['samples']
+            misc_to_deliver = _proj_data['misc']
+            hard_staged_samples = []
+            for sample_id in samples_to_deliver:
+                try:
+                    sample_deliverer = GrusSampleDeliverer(_proj, sample_id, delivery_name=self.delivery_name)
+                    sample_deliverer.deliver_sample()
+                except Exception, e:
+                    logger.error('Sample {} has not been hard staged. Error says: {}'.format(sample_id, e))
+                    logger.exception(e)
+                    exit(1)
+                else:
+                    hard_staged_samples.append(sample_id)
+            if len(samples_to_deliver) != len(hard_staged_samples):
+                # Something unexpected happend, terminate
+                logger.warning('Not all the samples have been hard staged for project {}. Terminating'.format(_proj))
+                raise AssertionError('len(samples_to_deliver) != len(hard_staged_samples): {} != {}'.format(len(samples_to_deliver),
+                                                                                                            len(hard_staged_samples)))
+
+            hard_staged_misc = []
+            for itm in misc_to_deliver:
+                src_misc = os.path.join(soft_stagepath, itm)
+                dst_misc = os.path.join(hard_stagepath, _proj if self.delivery_name != None else '', itm)
+                try:
+                    if os.path.isdir(src_misc):
+                        shutil.copytree(src_misc, dst_misc)
+                    else:
+                        shutil.copy(src_misc, dst_misc)
+                except Exception, e:
+                    logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, _proj, e))
+                    logger.exception(e)
+                    exit(1)
+                else:
+                    hard_staged_misc.append(itm)
+            if len(misc_to_deliver) != len(hard_staged_misc):
+                # Something unexpected happend, terminate
+                logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(_proj))
+                raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
+                                                                                                      len(hard_staged_misc)))        
+
+        # # create a delivery project id
         supr_name_of_delivery = ''
         try:
             delivery_project_info = self._create_delivery_project(pi_id, self.sensitive)
@@ -322,17 +382,20 @@ class GrusProjectDeliverer(ProjectDeliverer):
             status = False
         return status
 
+
     def save_delivery_token_in_charon(self, delivery_token):
         '''Updates delivery_token in Charon at project level
         '''
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token=delivery_token)
 
+
     def delete_delivery_token_in_charon(self):
         '''Removes delivery_token from Charon upon successful delivery
         '''
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token='NO-TOKEN')
+ 
     
     def get_delivery_token_in_charon(self):
         '''fetches delivery_token from Charon
@@ -343,6 +406,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             return project_charon.get('delivery_token')
         else:
             return 'NO-TOKEN'
+
 
     def add_supr_name_delivery_in_charon(self, supr_name_of_delivery):
         '''Updates delivery_projects in Charon at project level
@@ -361,6 +425,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         except Exception, e:
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
+
 
     def do_delivery(self, supr_name_of_delivery):
         # this one returns error : "265 is non-existing at /usr/local/bin/to_outbox line 214". (265 is delivery_project_id, created via api)
@@ -493,6 +558,8 @@ class GrusSampleDeliverer(SampleDeliverer):
             projectid,
             sampleid,
             **kwargs)
+        self.delivery_name = kwargs.get('delivery_name')
+
 
     def deliver_sample(self, sampleentry=None):
         """ Deliver a sample to the destination specified via command line of on Charon.
@@ -514,6 +581,9 @@ class GrusSampleDeliverer(SampleDeliverer):
         # propagate raised errors upwards, they should trigger notification to operator
         # try:
         logger.info("Delivering {} to GRUS with MOVER".format(str(self)))
+        if self.delivery_name != None:
+            stagepathhard_parent, stagepathhard_base = os.path.split(self.stagingpathhard)
+            self.stagingpathhard = os.path.join(stagepathhard_parent, self.delivery_name, stagepathhard_base)
         hard_stagepath = self.expand_path(self.stagingpathhard)
         soft_stagepath = self.expand_path(self.stagingpath)
 
@@ -533,11 +603,7 @@ class GrusSampleDeliverer(SampleDeliverer):
             self.update_delivery_status(status="IN_PROGRESS")
             self.do_delivery()
         #in case of faiulure put again the status to STAGED
-        except DelivererInterruptedError, e:
-            self.update_delivery_status(status="STAGED")
-            logger.exception(e)
-            raise(e)
-        except Exception, e:
+        except (DelivererInterruptedError, Exception) as e:
             self.update_delivery_status(status="STAGED")
             logger.exception(e)
             raise(e)
@@ -569,8 +635,6 @@ class GrusSampleDeliverer(SampleDeliverer):
             logger.exception(e)
 
 
-
-
     def do_delivery(self):
         """ Creating a hard copy of staged data
         """
@@ -585,5 +649,4 @@ class GrusSampleDeliverer(SampleDeliverer):
             shutil.copy(file, self.expand_path(self.stagingpathhard))
         logger.info("Sample {} has been hard staged to {}".format(self.sampleid, destination_dir))
         return
-
 
