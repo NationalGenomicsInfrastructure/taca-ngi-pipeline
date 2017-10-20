@@ -300,7 +300,6 @@ class ProjectDeliverer(Deliverer):
             projectid,
             sampleid,
             **kwargs)
-        import pdb; pdb.set_trace()
 
     def all_samples_delivered(
             self,
@@ -468,6 +467,8 @@ class ProjectDeliverer(Deliverer):
             But error during copying of staged folder should be raised
         """
         misc_files_to_deliver = getattr(self, 'misc_files_to_deliver', [])
+        if len(misc_files_to_deliver) == 0:
+            return
         misc_gathered_files = fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in misc_files_to_deliver],
                                                    no_checksum=self.no_checksum,
                                                    hash_algorithm=self.hash_algorithm)
@@ -514,9 +515,10 @@ class ProjectDeliverer(Deliverer):
                             '--exclude': ["*rsync.out", "*rsync.err"]
                         })
             try:
-                return ragent.transfer(transfer_log=self.transfer_log())
+                ragent.transfer(transfer_log=self.transfer_log())
             except transfer.TransferError as e:
                 raise DelivererRsyncError(e)
+        return
 
 class SampleDeliverer(Deliverer):
     """
