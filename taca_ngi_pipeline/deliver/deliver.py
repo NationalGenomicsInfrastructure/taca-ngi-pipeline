@@ -300,6 +300,7 @@ class ProjectDeliverer(Deliverer):
             projectid,
             sampleid,
             **kwargs)
+        import pdb; pdb.set_trace()
 
     def all_samples_delivered(
             self,
@@ -416,6 +417,8 @@ class ProjectDeliverer(Deliverer):
                     db.dbcon(), self.projectid).get('samples', [])]:
                 st = SampleDeliverer(self.projectid, sampleid).deliver_sample()
                 status = (status and st)
+            # Try to deliver any miscellaneous files for the project (like reports, analysis)
+            self.deliver_misc_data()
             # query the database whether all samples in the project have been sucessfully delivered
             if self.all_samples_delivered():
                 # this is the only delivery status we want to set on the project level, in order to avoid concurrently
@@ -457,7 +460,63 @@ class ProjectDeliverer(Deliverer):
                 if an error occurred when communicating with the database
         """
         return db.update_project(db.dbcon(), self.projectid, delivery_status=status)
+    
+    def deliver_misc_data(self):
+        """ Deliver any miscellaneous files like reports, analysis results for the project
+            This is intended only for project delivery, to avoid redundant delivery.
+            Any error during staging here should not fail the delivery, just log warning.
+            But error during copying of staged folder should be raised
+        """
+        misc_files_to_deliver = getattr(self, 'misc_files_to_deliver', [])
+        misc_gathered_files = fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in misc_files_to_deliver],
+                                                   no_checksum=self.no_checksum,
+                                                   hash_algorithm=self.hash_algorithm)
+        misc_digestpath = os.path.join(self.expand_path(self.stagingpath), "miscellaneous.{}".format(self.hash_algorithm))
+        misc_filelistpath = os.path.join(self.expand_path(self.stagingpath), "miscellaneous.lst")
+        # Try to stage the miscellaneous files
+        try:
+            with open(misc_digestpath, 'w') as mdh, open(misc_filelistpath, 'w') as mfh:
+                sagent = transfer.SymlinkAgent(None, None, relative=True)
+                for src, dst, digest in misc_gathered_files:
+                    sagent.src_path = src
+                    sagent.dest_path = dst
+                    try:
+                        sagent.transfer()
+                    except (transfer.TransferError, transfer.SymlinkError) as e:
+                        logger.warning("Failed to stage miscellaneous file '{}' when "
+                                       "delivering {} - reason: {}".format(src, str(self), e))
 
+                    fpath = os.path.relpath(dst, self.expand_path(self.stagingpath))
+                    mfh.write("{}\n".format(fpath))
+                    if digest is not None:
+                        mdh.write("{}  {}\n".format(digest, fpath))
+                # finally, include the digestfile in the list of files to deliver
+                mfh.write("{}\n".format(os.path.basename(misc_digestpath)))
+        except (IOError, fs.FileNotFoundException, fs.PatternNotMatchedException) as e:
+            logger.warning("Failed to stage delivery - reason: {}".format(e))
+        # Try to deliver staged files if not only stage option given
+        if not self.stage_only:
+            misc_delivered_digest = os.path.join(self.deliverypath, "miscellaneous.{}".format(self.hash_algorithm))
+            ragent = transfer.RsyncAgent(
+                        self.expand_path(self.stagingpath),
+                        dest_path=self.expand_path(self.deliverypath),
+                        digestfile=misc_delivered_digest,
+                        remote_host=getattr(self, 'remote_host', None),
+                        remote_user=getattr(self, 'remote_user', None),
+                        log=logger,
+                        opts={
+                            '--files-from': [misc_filelistpath],
+                            '--copy-links': None,
+                            '--recursive': None,
+                            '--perms': None,
+                            '--chmod': 'ug+rwX,o-rwx',
+                            '--verbose': None,
+                            '--exclude': ["*rsync.out", "*rsync.err"]
+                        })
+            try:
+                return ragent.transfer(transfer_log=self.transfer_log())
+            except transfer.TransferError as e:
+                raise DelivererRsyncError(e)
 
 class SampleDeliverer(Deliverer):
     """
