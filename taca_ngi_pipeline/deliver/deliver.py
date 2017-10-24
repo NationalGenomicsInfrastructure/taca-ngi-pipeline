@@ -307,14 +307,17 @@ class Deliverer(object):
         if not control_dict:
             return
 
-        def _parse_hash_file(hfile):
+        def _parse_hash_file(hfile, interested_files):
             """Parse the hash file and return dict with hash value and file size
-               Files are grouped based on parent directory relative to stage 
+               Files are grouped based on parent directory relative to stage
+               Only saves the meta info for 'interested_files'
             """
             mdict = {}
             with open(hfile, 'r') as hfl:
                 for fl in iter(hfl):
                     fl = fl.strip()
+                    if not any(map(lambda pat: pat in fl, interested_files)):
+                        continue
                     hval, fnm = fl.split()
                     fkey = fnm.split(os.sep)[0] if len(fnm.split(os.sep)) > 1 else os.path.splitext(fnm)[0]
                     if fkey not in mdict:
@@ -350,7 +353,7 @@ class Deliverer(object):
         meta_info_dict = {}
         hash_files = glob.glob(os.path.join(self.expand_path(self.stagingpath), "*.{}".format(self.hash_algorithm)))
         for hash_file in hash_files:
-            meta_info_dict = _merge_dicts(meta_info_dict, _parse_hash_file(hash_file))
+            meta_info_dict = _merge_dicts(meta_info_dict, _parse_hash_file(hash_file, control_dict.get('files_interested', ['.fastq', '.bam'])))
         # Now fetch the document from database for the project
         try:
             duser = db_conf.get("username")
