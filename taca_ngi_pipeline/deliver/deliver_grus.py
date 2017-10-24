@@ -221,6 +221,10 @@ class GrusProjectDeliverer(ProjectDeliverer):
         #check that given project(s) is/are not under delivery with mover already in this case stop delivery
         for _proj, _proj_deliver_object in all_projects.iteritems():
             _proj_deliver_status = _proj_deliver_object.get_delivery_status()
+            try:
+                _proj_deliver_object.pi_email = _proj_deliver_object._get_pi_email()
+            except:
+                _proj_deliver_object.pi_email = None
             if _proj_deliver_status == 'DELIVERED' \
                     and not self.force:
                 logger.info("{} has already been delivered. This project will not be delivered again this time.".format(_proj))
@@ -246,31 +250,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         else:
             logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
             return False
-        
-        #now find the PI mail which is needed to create the delivery projects        if self.pi_email is None:
-        try:
-            self.pi_email = self._get_pi_email()
-            logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
-        except Exception, e:
-            logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
-            # print the traceback, not only error message -> isn't it something more useful?
-            logger.exception(e)
-            status = False
-            return status
-        else:
-            logger.warning("email for PI for project {} specified by user: {}".format(self.projectid,
-                        self.pi_email))
-        #and now get the pi PID from snic
-        pi_id = ''
-        try:
-            pi_id = self._get_pi_id()
-            logger.info("PI-id for delivering of project {} is {}".format(self.projectid, pi_id))
-        except Exception, e:
-            logger.error("Cannot fetch pi_id from snic API. Error says: {}".format(str(e)))
-            logger.exception(e)
-            status = False
-            return status
-        
+                
         #check the source directory and list the files that will be hard staged/delivered
         # connect to charon, return list of sample objects that have been staged
         question = "\nFollowing data will be delivered, go through list carefully and accept it if right. Cancel the delivery and cleanup "\
@@ -301,13 +281,53 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if proceed_or_not(question):
             logger.info("Proceeding with delivery of {}".format(str(self), self.sensitive))
         else:
-            logger.error("Aborsting delivery for {}, remove unwanted files and try again".format(str(self)))
+            logger.error("Aborting delivery for {}, remove unwanted files and try again".format(str(self)))
             return False
         
         #now start with the real work
         status = True
         #otherwise lock the delivery by creating the folder
         create_folder(hard_stagepath)
+        
+        #now find the PI mail which is needed to create the delivery projects
+        if self.pi_email is None:
+            try:
+                self.pi_email = self._get_pi_email()
+                logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
+            except Exception, e:
+                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
+                # print the traceback, not only error message -> isn't it something more useful?
+                logger.exception(e)
+                status = False
+                return status
+            if self.include_project and len(set([_pobj.pi_email for _pobj in all_projects.values()])) != 1:
+                logger.error("Project '{}' and included projects '{}' do not have same PI, so cannot be delivered together".format(self.projectid, ", ".join(self.include_project)))
+                status = False
+                return status
+                
+        else:
+            logger.warning("Email of PI for project {} specified by user: {}".format(self.projectid,
+                        self.pi_email))
+            if self.include_project:
+                question = "\nUser specified PI email '{}' will be used for all included projects '{}' as well. "\
+                           "Is it OK ? ".format(self.pi_email, ", ".join(self.include_project))
+                if proceed_or_not(question):
+                    logger.info("Will use PI email '{}' for all projects".format(self.pi_mail))
+                else:
+                    logger.error("Aborting delivery for {}, figure out PI email issue and try again".format(str(self)))
+                    status = False
+                    return status
+
+        #and now get the pi PID from snic
+        pi_id = ''
+        try:
+            pi_id = self._get_pi_id()
+            logger.info("PI-id for delivering of project {} is {}".format(self.projectid, pi_id))
+        except Exception, e:
+            logger.error("Cannot fetch pi_id from snic API. Error says: {}".format(str(e)))
+            logger.exception(e)
+            status = False
+            return status
         
         for _proj, _proj_data in data_to_deliver.iteritems():
             samples_to_deliver = _proj_data['samples']
