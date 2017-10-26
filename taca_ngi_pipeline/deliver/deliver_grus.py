@@ -219,26 +219,26 @@ class GrusProjectDeliverer(ProjectDeliverer):
             raise DelivererInterruptedError("Hard Staged Folder already present")
         
         #check that given project(s) is/are not under delivery with mover already in this case stop delivery
-        for _proj, _proj_deliver_object in all_projects.iteritems():
-            _proj_deliver_status = _proj_deliver_object.get_delivery_status()
+        for proj, proj_deliver_object in all_projects.iteritems():
+            proj_deliver_status = proj_deliver_object.get_delivery_status()
             try:
-                _proj_deliver_object.pi_email = _proj_deliver_object._get_pi_email()
+                proj_deliver_object.pi_email = proj_deliver_object._get_pi_email()
             except:
-                _proj_deliver_object.pi_email = None
-            if _proj_deliver_status == 'DELIVERED' \
+                proj_deliver_object.pi_email = None
+            if proj_deliver_status == 'DELIVERED' \
                     and not self.force:
-                logger.info("{} has already been delivered. This project will not be delivered again this time.".format(_proj))
+                logger.info("{} has already been delivered. This project will not be delivered again this time.".format(proj))
                 return True
-            elif _proj_deliver_status == 'IN_PROGRESS':
-                logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(_proj))
-                self.projectid = _proj #use the current project id rather than main project id during exception raise
+            elif proj_deliver_status == 'IN_PROGRESS':
+                logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(proj))
+                self.projectid = proj #use the current project id rather than main project id during exception raise
                 raise DelivererInterruptedError("Project already under delivery with Mover")
-            elif _proj_deliver_status == 'PARTIAL':
-                logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(_proj))
+            elif proj_deliver_status == 'PARTIAL':
+                logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(proj))
                 if proceed_or_not("Do you want to proceed (yes/no): "):
-                    logger.info("{} has already been partially delivered. User confirmed to proceed.".format(_proj))
+                    logger.info("{} has already been partially delivered. User confirmed to proceed.".format(proj))
                 else:
-                    logger.error("{} has already been partially delivered. User decided to not proceed.".format(_proj))
+                    logger.error("{} has already been partially delivered. User decided to not proceed.".format(proj))
                     return False
 
         #now check if the sensitive flag has been set in the correct way
@@ -256,27 +256,27 @@ class GrusProjectDeliverer(ProjectDeliverer):
         question = "\nFollowing data will be delivered, go through list carefully and accept it if right. Cancel the delivery and cleanup "\
                    "before proceeding if there are unintended files\n"
         data_to_deliver = {}
-        for _proj, _proj_deliver_object in all_projects.iteritems():
-            _proj_soft_stagepath = _proj_deliver_object.expand_path(_proj_deliver_object.stagingpath)
+        for proj, proj_deliver_object in all_projects.iteritems():
+            proj_soft_stagepath = proj_deliver_object.expand_path(proj_deliver_object.stagingpath)
             misc_to_deliver = []
             try:
-                samples_to_deliver = _proj_deliver_object.get_samples_from_charon(delivery_status="STAGED")
+                samples_to_deliver = proj_deliver_object.get_samples_from_charon(delivery_status="STAGED")
             except Exception, e:
                 logger.error("Cannot get samples from Charon. Error says: {}".format(str(e)))
                 logger.exception(e)
                 exit(1)
             if len(samples_to_deliver) == 0:
                 logger.warning('No staged samples found in Charon')
-                self.projectid = _proj #use the current project id rather than main project id during exception raise
+                self.projectid = proj #use the current project id rather than main project id during exception raise
                 raise AssertionError('No staged samples found in Charon')
-            items_in_stagepath = os.listdir(_proj_soft_stagepath)
+            items_in_stagepath = os.listdir(proj_soft_stagepath)
             for itm in items_in_stagepath:
                 base_name, ext_format = os.path.splitext(itm)
                 if base_name in samples_to_deliver:
                     continue
                 misc_to_deliver.append(itm)
-            data_to_deliver[_proj] = {'samples':samples_to_deliver, 'misc':misc_to_deliver}
-            question += "\nProject stagepath: {}\nSamples: {}\nMiscellaneous: {}\n".format(_proj_soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
+            data_to_deliver[proj] = {'samples':samples_to_deliver, 'misc':misc_to_deliver}
+            question += "\nProject stagepath: {}\nSamples: {}\nMiscellaneous: {}\n".format(proj_soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
         question += "\nProceed with delivery ? "
         if proceed_or_not(question):
             logger.info("Proceeding with delivery of {}".format(str(self), self.sensitive))
@@ -300,11 +300,13 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 logger.exception(e)
                 status = False
                 return status
-            if self.include_project and len(set([_pobj.pi_email for _pobj in all_projects.values()])) != 1:
-                logger.error("Project '{}' and included projects '{}' do not have same PI, so cannot be delivered together".format(self.projectid, ", ".join(self.include_project)))
-                status = False
-                return status
-                
+            if self.include_project:
+                for prj, pobj in all_projects.iteritems():
+                    if pobj.pi_email != self.pi_email:
+                        logger.error("PI ({}) for project '{}' is not same as PI ({}) for main project '{}'."\
+                                     " So aborting delivery.".format(pobj.pi_email, prj, self.pi_email, self.projectid))
+                        status = False
+                        return status
         else:
             logger.warning("Email of PI for project {} specified by user: {}".format(self.projectid,
                         self.pi_email))
@@ -312,7 +314,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 question = "\nUser specified PI email '{}' will be used for all included projects '{}' as well. "\
                            "Is it OK ? ".format(self.pi_email, ", ".join(self.include_project))
                 if proceed_or_not(question):
-                    logger.info("Will use PI email '{}' for all projects".format(self.pi_mail))
+                    logger.info("Will use PI email '{}' for all projects".format(self.pi_email))
                 else:
                     logger.error("Aborting delivery for {}, figure out PI email issue and try again".format(str(self)))
                     status = False
@@ -329,13 +331,13 @@ class GrusProjectDeliverer(ProjectDeliverer):
             status = False
             return status
         
-        for _proj, _proj_data in data_to_deliver.iteritems():
-            samples_to_deliver = _proj_data['samples']
-            misc_to_deliver = _proj_data['misc']
+        for proj, proj_data in data_to_deliver.iteritems():
+            samples_to_deliver = proj_data['samples']
+            misc_to_deliver = proj_data['misc']
             hard_staged_samples = []
             for sample_id in samples_to_deliver:
                 try:
-                    sample_deliverer = GrusSampleDeliverer(_proj, sample_id, delivery_name=self.delivery_name)
+                    sample_deliverer = GrusSampleDeliverer(proj, sample_id, delivery_name=self.delivery_name)
                     sample_deliverer.deliver_sample()
                 except Exception, e:
                     logger.error('Sample {} has not been hard staged. Error says: {}'.format(sample_id, e))
@@ -345,28 +347,28 @@ class GrusProjectDeliverer(ProjectDeliverer):
                     hard_staged_samples.append(sample_id)
             if len(samples_to_deliver) != len(hard_staged_samples):
                 # Something unexpected happend, terminate
-                logger.warning('Not all the samples have been hard staged for project {}. Terminating'.format(_proj))
+                logger.warning('Not all the samples have been hard staged for project {}. Terminating'.format(proj))
                 raise AssertionError('len(samples_to_deliver) != len(hard_staged_samples): {} != {}'.format(len(samples_to_deliver),
                                                                                                             len(hard_staged_samples)))
 
             hard_staged_misc = []
             for itm in misc_to_deliver:
                 src_misc = os.path.join(soft_stagepath, itm)
-                dst_misc = os.path.join(hard_stagepath, _proj if self.delivery_name != None else '', itm)
+                dst_misc = os.path.join(hard_stagepath, proj if self.delivery_name != None else '', itm)
                 try:
                     if os.path.isdir(src_misc):
                         shutil.copytree(src_misc, dst_misc)
                     else:
                         shutil.copy(src_misc, dst_misc)
                 except Exception, e:
-                    logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, _proj, e))
+                    logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, proj, e))
                     logger.exception(e)
                     exit(1)
                 else:
                     hard_staged_misc.append(itm)
             if len(misc_to_deliver) != len(hard_staged_misc):
                 # Something unexpected happend, terminate
-                logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(_proj))
+                logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(proj))
                 raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
                                                                                                       len(hard_staged_misc)))        
 
@@ -382,21 +384,23 @@ class GrusProjectDeliverer(ProjectDeliverer):
         delivery_token = self.do_delivery(supr_name_of_delivery) # instead of to_outbox
         #at this point I have delivery_token and supr_name_of_delivery so I need to update the project fields and the samples fields
         if delivery_token:
-            #memorise the delivery token used to check if project is under delivery
-            self.save_delivery_token_in_charon(delivery_token)
-            #memorise the delivery project so I know each NGi project to how many delivery projects it has been sent
-            self.add_supr_name_delivery_in_charon(supr_name_of_delivery)
-            logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
-                                                                                    supr_name_of_delivery,
-                                                                                    delivery_token))
-            for sample_id in samples_to_deliver:
-                try:
-                    sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
-                    sample_deliverer.save_delivery_token_in_charon(delivery_token)
-                    sample_deliverer.add_supr_name_delivery_in_charon(supr_name_of_delivery)
-                except Exception, e:
-                    logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
-                    logger.exception(e)
+            for proj, proj_data in data_to_deliver.iteritems():
+                pobj = all_projects[proj]
+                #memorise the delivery token used to check if project is under delivery
+                pobj.save_delivery_token_in_charon(delivery_token)
+                #memorise the delivery project so I know each NGi project to how many delivery projects it has been sent
+                pobj.add_supr_name_delivery_in_charon(supr_name_of_delivery)
+                logger.info("Delivery token for project {}, delivery project {} is {}".format(proj,
+                                                                                        supr_name_of_delivery,
+                                                                                        delivery_token))
+                for sample_id in proj_data['samples']:
+                    try:
+                        sample_deliverer = GrusSampleDeliverer(proj, sample_id)
+                        sample_deliverer.save_delivery_token_in_charon(delivery_token)
+                        sample_deliverer.add_supr_name_delivery_in_charon(supr_name_of_delivery)
+                    except Exception, e:
+                        logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
+                        logger.exception(e)
         else:
             logger.error('Delivery project for project {} has not been created'.format(self.projectid))
             status = False
@@ -499,7 +503,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         today = datetime.date.today()
         three_months_from_now = (today + relativedelta(months=+3))
         data = {
-            'ngi_project_name': self.projectid,
+            'ngi_project_name': self.delivery_name if self.delivery_name else self.projectid,
             'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
             'pi_id': pi_id,
             'start_date': today.strftime(supr_date_format),

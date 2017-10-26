@@ -502,10 +502,12 @@ class ProjectDeliverer(Deliverer):
                 sample_deliver.save_meta_info = False
                 st = sample_deliver.deliver_sample()
                 status = (status and st)
-            # Try to deliver any miscellaneous files for the project (like reports, analysis)
-            self.deliver_misc_data()
-            # Try aggregate and save meta info in database
-            self.aggregate_meta_info()
+            # Atleast one sample should have been staged/delivered for the following steps
+            if os.path.exists(self.expand_path(self.stagingpath)):
+                # Try to deliver any miscellaneous files for the project (like reports, analysis)
+                self.deliver_misc_data()
+                # Try aggregate and save meta info in database
+                self.aggregate_meta_info()
             # query the database whether all samples in the project have been sucessfully delivered
             if self.all_samples_delivered():
                 # this is the only delivery status we want to set on the project level, in order to avoid concurrently
