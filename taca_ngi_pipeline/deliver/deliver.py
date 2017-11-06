@@ -1,13 +1,16 @@
 """
     Module for controlling deliveries of samples and projects
 """
+import couchdb
 import datetime
+import glob
 import json
 import logging
 import os
 import re
 import signal
 import shutil
+import yaml
 
 from taca.utils.config import CONFIG
 from taca.utils.filesystem import create_folder, chdir
@@ -217,6 +220,34 @@ class Deliverer(object):
             raise DelivererError(
                 "failed to stage delivery - reason: {}".format(e))
         return True
+    
+    def do_delivery(self):
+        """ Deliver the staged delivery folder using rsync
+            :returns: True if delivery was successful, False if unsuccessful
+            :raises DelivererRsyncError: if an exception occurred during
+                transfer
+        """
+        agent = transfer.RsyncAgent(
+            self.expand_path(self.stagingpath),
+            dest_path=self.expand_path(self.deliverypath),
+            digestfile=self.delivered_digestfile(),
+            remote_host=getattr(self, 'remote_host', None),
+            remote_user=getattr(self, 'remote_user', None),
+            log=logger,
+            opts={
+                '--files-from': [self.staging_filelist()],
+                '--copy-links': None,
+                '--recursive': None,
+                '--perms': None,
+                '--chmod': 'ug+rwX,o-rwx',
+                '--verbose': None,
+                '--exclude': ["*rsync.out", "*rsync.err"]
+            })
+        create_folder(os.path.dirname(self.transfer_log()))
+        try:
+            return agent.transfer(transfer_log=self.transfer_log())
+        except transfer.TransferError as e:
+            raise DelivererRsyncError(e)
 
     def delivered_digestfile(self):
         """
@@ -292,6 +323,87 @@ class Deliverer(object):
                 raise DelivererError(
                     "the path '{}' could not be expanded - reason: {}".format(
                         path, e))
+
+    def aggregate_meta_info(self):
+        """ A method to collect meta info about delivered files (like size, md5 value)
+            Which files are interested (by default only 'fastq' and 'bam' files) can be
+            controlled by setting 'files_interested' in 'aggregate_meta_info' section.
+            It needs a database credentials file to put the aggregated info.
+        """
+        control_dict = getattr(self, 'save_meta_info', {})
+        # No appropriate section found, move on silently
+        if not control_dict:
+            return
+
+        def _parse_hash_file(hfile, interested_files):
+            """Parse the hash file and return dict with hash value and file size
+               Files are grouped based on parent directory relative to stage
+               Only saves the meta info for 'interested_files'
+            """
+            mdict = {}
+            with open(hfile, 'r') as hfl:
+                for fl in iter(hfl):
+                    fl = fl.strip()
+                    if not any(map(lambda pat: pat in fl, interested_files)):
+                        continue
+                    hval, fnm = fl.split()
+                    fkey = fnm.split(os.sep)[0] if len(fnm.split(os.sep)) > 1 else os.path.splitext(fnm)[0]
+                    if fkey not in mdict:
+                        mdict[fkey] = {}
+                    mdict[fkey][fnm] = {'{}_val'.format(self.hash_algorithm): hval,
+                                        'size_in_bytes': os.path.getsize(os.path.join(self.expand_path(self.stagingpath), fnm))}
+            return mdict
+        
+        def _merge_dicts(mdict, sdict):
+            """Merge the 2 given dictioneries, if a key already exists it is
+               replaced/udated with new values depending upon data types
+            """
+            for k, v in sdict.iteritems():
+                if k not in mdict:
+                    mdict[k] = v
+                elif isinstance(v, dict) and isinstance(mdict[k], dict):
+                    mdict[k] = _merge_dicts(mdict[k], v)
+                elif isinstance(v, list) and isinstance(mdict[k], list):
+                    mdict[k] = list(set(mdict[k] + v))
+                else:
+                    mdict[k] = v
+            return mdict
+        
+        try:
+            with open(control_dict.get('status_db_credentials'), 'r') as db_cred_file:
+                db_conf = yaml.load(db_cred_file)['statusdb']
+        except Exception as e:
+            logger.warning("Reading DB config failed due to {}. Meta info will not be saved".format(e))
+            return
+        # Build meta info dict to put in the database. This method in intended to be
+        # called after staging. So if everything goes well there should always be
+        # calculated hash files with specific format in the staged directory
+        meta_info_dict = {}
+        hash_files = glob.glob(os.path.join(self.expand_path(self.stagingpath), "*.{}".format(self.hash_algorithm)))
+        for hash_file in hash_files:
+            meta_info_dict = _merge_dicts(meta_info_dict, _parse_hash_file(hash_file, control_dict.get('files_interested', ['.fastq', '.bam'])))
+        # Now fetch the document from database for the project
+        try:
+            duser = db_conf.get("username")
+            dpwrd = db_conf.get("password")
+            dport = db_conf.get("port")
+            durl = db_conf.get("url")
+            durl_string = "http://{}:{}@{}:{}".format(duser, dpwrd, durl, dport)
+            display_url_string = "http://{}:{}@{}:{}".format(duser, "*********", durl, dport)
+            couch_connection = couchdb.Server(url=durl_string)
+            if not couch_connection:
+                logger.warning("Connection failed for url {}, will skip savinf meta info to database".format(display_url_string))
+                return
+            proj_db = couch_connection['projects']
+            proj_doc = [proj_db.get(k.id) for k in proj_db.view("project/project_name", reduce=False) if k.key == self.projectname][0]
+            old_meta_info = proj_doc.get("delivered_files", {})
+            proj_doc["delivered_files"] = _merge_dicts(old_meta_info, meta_info_dict)
+            proj_db.save(proj_doc)
+        except Exception as e:
+            logger.warning("Attempt to put meta info in database have failed due to {}".format(e))
+            return
+        else:
+            logger.info("Successfully updated meta info")
 
 
 class ProjectDeliverer(Deliverer):
@@ -414,8 +526,16 @@ class ProjectDeliverer(Deliverer):
             status = True
             for sampleid in [sentry['sampleid'] for sentry in db.project_sample_entries(
                     db.dbcon(), self.projectid).get('samples', [])]:
-                st = SampleDeliverer(self.projectid, sampleid).deliver_sample()
+                sample_deliver = SampleDeliverer(self.projectid, sampleid)
+                sample_deliver.save_meta_info = False
+                st = sample_deliver.deliver_sample()
                 status = (status and st)
+            # Atleast one sample should have been staged/delivered for the following steps
+            if os.path.exists(self.expand_path(self.stagingpath)):
+                # Try to deliver any miscellaneous files for the project (like reports, analysis)
+                ProjectMiscDeliverer(self.projectid).deliver_misc_data()
+                # Try aggregate and save meta info in database
+                self.aggregate_meta_info()
             # query the database whether all samples in the project have been sucessfully delivered
             if self.all_samples_delivered():
                 # this is the only delivery status we want to set on the project level, in order to avoid concurrently
@@ -458,6 +578,45 @@ class ProjectDeliverer(Deliverer):
         """
         return db.update_project(db.dbcon(), self.projectid, delivery_status=status)
 
+
+class ProjectMiscDeliverer(Deliverer):
+    """
+        A class for handling meta data for projects
+    """
+    def __init__(self, projectid=None, sampleid=None, **kwargs):
+        super(ProjectMiscDeliverer, self).__init__(
+            projectid,
+            sampleid,
+            **kwargs)
+        self.misc_files_to_deliver = getattr(self, 'misc_files_to_deliver', None)
+    
+    def staging_digestfile(self):
+        """
+            :returns: path to the file with checksums for miscellaneous files after staging
+        """
+        return self.expand_path(os.path.join(self.stagingpath, "miscellaneous.{}".format(self.hash_algorithm)))
+
+    def staging_filelist(self):
+        """
+            :returns: path to the file with a list of miscellaneous files to transfer after staging
+        """
+        return self.expand_path(os.path.join(self.stagingpath, "miscellaneous.lst"))
+    
+    def gather_files(self):
+        """
+            Similar as the 'gather_files' in parent class but uses 'misc_files_to_deliver' instead
+        """
+        return fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in self.misc_files_to_deliver],
+                                                       no_checksum=self.no_checksum,
+                                                       hash_algorithm=self.hash_algorithm)
+    
+    def deliver_misc_data(self):
+        if self.misc_files_to_deliver != None:
+            if not self.stage_delivery():
+                logger.warning("Miscellaneous files were not properly staged for project {}".format(self.projectid))
+            if not self.do_delivery():
+                raise DelivererError("Miscellaneous files for project {} was not properly delivered".format(self.projectid))            
+            
 
 class SampleDeliverer(Deliverer):
     """
@@ -595,6 +754,7 @@ class SampleDeliverer(Deliverer):
                 self.acknowledge_delivery()
             else:
                 self.update_delivery_status(status="STAGED")
+            self.aggregate_meta_info()
             return True
         except DelivererInterruptedError:
             self.update_delivery_status(status="NOT_DELIVERED")
@@ -602,34 +762,6 @@ class SampleDeliverer(Deliverer):
         except Exception:
             self.update_delivery_status(status="FAILED")
             raise
-
-    def do_delivery(self):
-        """ Deliver the staged delivery folder using rsync
-            :returns: True if delivery was successful, False if unsuccessful
-            :raises DelivererRsyncError: if an exception occurred during
-                transfer
-        """
-        agent = transfer.RsyncAgent(
-            self.expand_path(self.stagingpath),
-            dest_path=self.expand_path(self.deliverypath),
-            digestfile=self.delivered_digestfile(),
-            remote_host=getattr(self, 'remote_host', None),
-            remote_user=getattr(self, 'remote_user', None),
-            log=logger,
-            opts={
-                '--files-from': [self.staging_filelist()],
-                '--copy-links': None,
-                '--recursive': None,
-                '--perms': None,
-                '--chmod': 'ug+rwX,o-rwx',
-                '--verbose': None,
-                '--exclude': ["*rsync.out", "*rsync.err"]
-            })
-        create_folder(os.path.dirname(self.transfer_log()))
-        try:
-            return agent.transfer(transfer_log=self.transfer_log())
-        except transfer.TransferError as e:
-            raise DelivererRsyncError(e)
 
     def update_delivery_status(self, status="DELIVERED"):
         """ Update the delivery_status field in the database to the supplied 
@@ -639,9 +771,3 @@ class SampleDeliverer(Deliverer):
                 if an error occurred when communicating with the database
         """
         return db.update_sample(db.dbcon(), self.projectid, self.sampleid, delivery_status=status)
-
-
-
-
-
-
