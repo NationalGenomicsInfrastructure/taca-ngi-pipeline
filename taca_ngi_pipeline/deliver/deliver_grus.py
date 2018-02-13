@@ -72,10 +72,11 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
-        self.pi_email  = pi_email
+        self._set_pi_details(pi_email)
+        self._set_binfo_details()
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
-
+    
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this sample. If a sampleentry
         dict is supplied, it will be used instead of fethcing from database
@@ -234,30 +235,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
         status = True
         #otherwise lock the delivery by creating the folder
         create_folder(hard_stagepath)
-        #now find the PI mail which is needed to create the delivery project
-        if self.pi_email is None:
-            try:
-                self.pi_email = self._get_pi_email()
-                logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
-            except Exception, e:
-                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
-                # print the traceback, not only error message -> isn't it something more useful?
-                logger.exception(e)
-                status = False
-                return status
-        else:
-            logger.warning("email for PI for project {} specified by user: {}".format(self.projectid,
-                        self.pi_email))
-        #and now get the pi PID from snic
-        pi_id = ''
-        try:
-            pi_id = self._get_pi_id()
-            logger.info("PI-id for delivering of project {} is {}".format(self.projectid, pi_id))
-        except Exception, e:
-            logger.error("Cannot fetch pi_id from snic API. Error says: {}".format(str(e)))
-            logger.exception(e)
-            status = False
-            return status
         
         # connect to charon, return list of sample objects that have been staged
         try:
@@ -318,10 +295,11 @@ class GrusProjectDeliverer(ProjectDeliverer):
             raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
                                                                                                   len(hard_staged_misc)))
 
+        return True
         # create a delivery project id
         supr_name_of_delivery = ''
         try:
-            delivery_project_info = self._create_delivery_project(pi_id, self.sensitive)
+            delivery_project_info = self._create_delivery_project()
             supr_name_of_delivery = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
         except Exception, e:
@@ -432,7 +410,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 samples_of_interest.append(sample_id)
         return samples_of_interest
 
-    def _create_delivery_project(self, pi_id, sensitive):
+    def _create_delivery_project(self):
         create_project_url = '{}/ngi_delivery/project/create/'.format(self.config_snic.get('snic_api_url'))
         user               = self.config_snic.get('snic_api_user')
         password           = self.config_snic.get('snic_api_password')
@@ -442,7 +420,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         data = {
             'ngi_project_name': self.projectid,
             'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
-            'pi_id': pi_id,
+            'pi_id': self.pi_snic_id,
             'start_date': today.strftime(supr_date_format),
             'end_date': three_months_from_now.strftime(supr_date_format),
             'continuation_name': '',
@@ -452,7 +430,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             'api_opaque_data': '',
             'ngi_ready': False,
             'ngi_delivery_status': '',
-            'ngi_sensitive_data': sensitive
+            'ngi_sensitive_data': self.sensitive
         }
 
         response = requests.post(create_project_url, data=json.dumps(data), auth=(user, password))
@@ -461,32 +439,75 @@ class GrusProjectDeliverer(ProjectDeliverer):
         result = json.loads(response.content)
         return result
 
-    def _get_pi_id(self):
+    def _set_pi_details(self, given_pi_email=None):
+        """
+            Set PI email address and PI SNIC ID using PI email
+        """
+        self.pi_email, self.pi_snic_id = (None, None)
+        # try getting PI email
+        if given_pi_email:
+            logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
+            self.pi_email = given_pi_email
+        else:
+            try:
+                self.pi_email = self._get_order_detail()['project_pi_email']
+                logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
+            except Exception, e:
+                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
+                raise e
+        # try getting PI SNIC ID
+        try:
+            self.pi_snic_id = self._get_user_sinc_id(self.pi_email)
+            logger.info("SNIC PI-id for delivering of project {} is {}".format(self.projectid, self.pi_snic_id))
+        except Exception, e:
+            logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
+            raise e
+    
+    def _set_binfo_details(self):
+        """
+            Set bioinfo contact details if avilable, this is not mandatory so
+            the methos will not raise error if it could not find and contact
+        """
+        self.binfo_email, self.binfo_snic_id = (None, None)
+        # try getting bioinfo contact email
+        try:
+            self.binfo_email = self._get_order_detail()['project_bx_email']
+            assert self.binfo_email #check its not empty string
+            logger.info("Bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_email))
+        except:
+            logger.warning("Was not able to get bioinfo contact for project {}".format(self.projectid))
+            return
+        # try getting snic id for bioinfo contact
+        try:
+            self.binfo_snic_id = self._get_user_sinc_id(self.binfo_email)
+            assert self.binfo_snic_id
+            logger.info("SNIC id for bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_snic_id))
+        except:
+            logger.warning("Was not able to get SNIC id for bioinfo contact with email {}".format(self.binfo_email))
+        
+    def _get_user_sinc_id(self, uemail):
+        user = self.config_snic.get('snic_api_user')
+        password = self.config_snic.get('snic_api_password')
         get_user_url = '{}/person/search/'.format(self.config_snic.get('snic_api_url'))
-        user         = self.config_snic.get('snic_api_user')
-        password     = self.config_snic.get('snic_api_password')
-        params   = {'email_i': self.pi_email}
+        params   = {'email_i': uemail}
         response = requests.get(get_user_url, params=params, auth=(user, password))
-
         if response.status_code != 200:
-            raise AssertionError("Status code returned when trying to get PI id for email: {} was not 200. Response was: {}".format(self.pi_email, response.content))
+            raise AssertionError("Unexpected code returned when trying to get SNIC id for email: {}. Response was: {}".format(uemail, response.content))
         result = json.loads(response.content)
         matches = result.get("matches")
         if matches is None:
             raise AssertionError('The response returned unexpected data')
         if len(matches) < 1:
-            raise AssertionError("There were no hits in SUPR for email: {}".format(self.pi_email))
+            raise AssertionError("There were no hits in SUPR for email: {}".format(uemail))
         if len(matches) > 1:
-            raise AssertionError("There we more than one hit in SUPR for email: {}".format(self.pi_email))
+            raise AssertionError("There we more than one hit in SUPR for email: {}".format(uemail))
+        return matches[0].get("id")
 
-        pi_id = matches[0].get("id")
-        return pi_id
-
-    def _get_pi_email(self):
-        url      = self.config_statusdb.get('url')
+    def _get_order_detail(self):
+        url = self.config_statusdb.get('url')
         username = self.config_statusdb.get('username')
         password = self.config_statusdb.get('password')
-        port     = self.config_statusdb.get('port')
+        port = self.config_statusdb.get('port')
         status_db_url = 'http://{}:{}@{}:{}'.format(username, password, url, port)
         status_db = couchdb.Server(status_db_url)
         projects_db = status_db['projects']
@@ -499,12 +520,11 @@ class GrusProjectDeliverer(ProjectDeliverer):
         portal_id = rows[0].value
         #now get the PI email from order portal API
         get_project_url = '{}/v1/order/{}'.format(self.orderportal.get('orderportal_api_url'), portal_id)
-        headers = {'X-OrderPortal-API-key': '{}'.format(self.orderportal.get('orderportal_api_token'))}
+        headers = {'X-OrderPortal-API-key': self.orderportal.get('orderportal_api_token')}
         response = requests.get(get_project_url, headers=headers)
         if response.status_code != 200:
             raise AssertionError("Status code returned when trying to get PI email from project in order portal: {} was not 200. Response was: {}".format(portal_id, response.content))
-        pi_email = json.loads(response.content)['fields']['project_pi_email']
-        return pi_email
+        return json.loads(response.content)['fields']        
 
 
 class GrusSampleDeliverer(SampleDeliverer):
