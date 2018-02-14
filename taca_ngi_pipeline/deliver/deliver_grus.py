@@ -295,7 +295,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
             raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
                                                                                                   len(hard_staged_misc)))
 
-        return True
         # create a delivery project id
         supr_name_of_delivery = ''
         try:
@@ -431,8 +430,9 @@ class GrusProjectDeliverer(ProjectDeliverer):
             'ngi_ready': False,
             'ngi_delivery_status': '',
             'ngi_sensitive_data': self.sensitive
-        }
-
+            }
+        if self.binfo_snic_id:
+            data['member_ids'] = [self.binfo_snic_id]
         response = requests.post(create_project_url, data=json.dumps(data), auth=(user, password))
         if response.status_code != 200:
             raise AssertionError("API returned status code {}. Response: {}. URL: {}".format(response.status_code, response.content, create_project_url))
@@ -476,14 +476,15 @@ class GrusProjectDeliverer(ProjectDeliverer):
             logger.info("Bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_email))
         except:
             logger.warning("Was not able to get bioinfo contact for project {}".format(self.projectid))
-            return
         # try getting snic id for bioinfo contact
-        try:
-            self.binfo_snic_id = self._get_user_sinc_id(self.binfo_email)
-            assert self.binfo_snic_id
-            logger.info("SNIC id for bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_snic_id))
-        except:
-            logger.warning("Was not able to get SNIC id for bioinfo contact with email {}".format(self.binfo_email))
+        if self.binfo_email == self.pi_email:
+            logger.info("Bioinfo contact is same as PI, so will be ignored and not be used")
+        elif self.binfo_email:
+            try:
+                self.binfo_snic_id = self._get_user_sinc_id(self.binfo_email)
+                logger.info("SNIC id for bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_snic_id))
+            except:
+                logger.warning("Was not able to get SNIC id for bioinfo contact with email {}".format(self.binfo_email))
         
     def _get_user_sinc_id(self, uemail):
         user = self.config_snic.get('snic_api_user')
