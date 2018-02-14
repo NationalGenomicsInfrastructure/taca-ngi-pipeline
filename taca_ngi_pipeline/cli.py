@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
               help="Specify to which cluster one wants to deliver")
 
 
-
 def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, force, cluster, ignore_analysis_status):
     """ Deliver methods entry point
     """
@@ -52,6 +51,7 @@ def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, forc
         del ctx.params['uppnexid']
     if operator is None or len(operator) == 0:
         del ctx.params['operator']
+
 
 # deliver subcommands
 # project delivery
@@ -126,6 +126,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 **ctx.parent.params)
         _exec_fn(d, d.deliver_project)
 
+
 # sample delivery
 @deliver.command()
 @click.pass_context
@@ -168,7 +169,6 @@ def sample(ctx, projectid, sampleid):
     if ctx.parent.params['cluster'] == 'bianca':
         projectObj.close_sftp_connnection()
 
-
 # helper function to handle error reporting
 def _exec_fn(obj, fn):
     try:
@@ -196,8 +196,7 @@ def _exec_fn(obj, fn):
                 str(obj), str(e), obj.config.get('operator')))
 
 
-
-
+# check status of ongoing GRUS delivery
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING, nargs=-1)
@@ -229,6 +228,3 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
                 pid,
                 **ctx.parent.params)
         d.check_mover_delivery_status()
-
-
-
