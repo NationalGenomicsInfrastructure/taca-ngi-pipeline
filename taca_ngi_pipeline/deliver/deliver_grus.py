@@ -214,7 +214,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         elif self.get_delivery_status() == 'IN_PROGRESS':
             logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(
                     self.projectid))
-            raise DelivererInterruptedError("Proejct already under delivery with Mover")
+            raise DelivererInterruptedError("Project already under delivery with Mover")
         elif self.get_delivery_status() == 'PARTIAL':
             logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(str(self)))
             if proceed_or_not("Do you want to proceed (yes/no): "):
@@ -466,7 +466,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
     def _set_binfo_details(self):
         """
             Set bioinfo contact details if avilable, this is not mandatory so
-            the methos will not raise error if it could not find and contact
+            the method will not raise error if it could not find any contact
         """
         self.binfo_email, self.binfo_snic_id = (None, None)
         # try getting bioinfo contact email
@@ -499,9 +499,9 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if matches is None:
             raise AssertionError('The response returned unexpected data')
         if len(matches) < 1:
-            raise AssertionError("There were no hits in SUPR for email: {}".format(uemail))
+            raise AssertionError("There was no hit in SUPR for email: {}".format(uemail))
         if len(matches) > 1:
-            raise AssertionError("There we more than one hit in SUPR for email: {}".format(uemail))
+            raise AssertionError("There were more than one hit in SUPR for email: {}".format(uemail))
         return matches[0].get("id")
 
     def _get_order_detail(self):
