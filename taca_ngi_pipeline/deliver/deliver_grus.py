@@ -457,7 +457,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 raise e
         # try getting PI SNIC ID
         try:
-            self.pi_snic_id = self._get_user_sinc_id(self.pi_email)
+            self.pi_snic_id = self._get_user_snic_id(self.pi_email)
             logger.info("SNIC PI-id for delivering of project {} is {}".format(self.projectid, self.pi_snic_id))
         except Exception, e:
             logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
@@ -481,12 +481,12 @@ class GrusProjectDeliverer(ProjectDeliverer):
             logger.info("Bioinfo contact is same as PI, so will be ignored and not be used")
         elif self.binfo_email:
             try:
-                self.binfo_snic_id = self._get_user_sinc_id(self.binfo_email)
+                self.binfo_snic_id = self._get_user_snic_id(self.binfo_email)
                 logger.info("SNIC id for bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_snic_id))
             except:
                 logger.warning("Was not able to get SNIC id for bioinfo contact with email {}".format(self.binfo_email))
         
-    def _get_user_sinc_id(self, uemail):
+    def _get_user_snic_id(self, uemail):
         user = self.config_snic.get('snic_api_user')
         password = self.config_snic.get('snic_api_password')
         get_user_url = '{}/person/search/'.format(self.config_snic.get('snic_api_url'))
