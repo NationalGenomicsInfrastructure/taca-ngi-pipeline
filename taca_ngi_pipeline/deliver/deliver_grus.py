@@ -56,7 +56,7 @@ def check_mover_version():
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, include_user_grus=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -72,8 +72,8 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
-        self._set_pi_details(pi_email)
-        self._set_binfo_details()
+        self._set_pi_details(pi_email) # set PI email and SNIC id
+        self._set_other_member_details(include_user_grus) # set SNIC id for other project members
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
     
@@ -429,10 +429,9 @@ class GrusProjectDeliverer(ProjectDeliverer):
             'api_opaque_data': '',
             'ngi_ready': False,
             'ngi_delivery_status': '',
-            'ngi_sensitive_data': self.sensitive
+            'ngi_sensitive_data': self.sensitive,
+            'member_ids': self.other_member_snic_ids
             }
-        if self.binfo_snic_id:
-            data['member_ids'] = [self.binfo_snic_id]
         response = requests.post(create_project_url, data=json.dumps(data), auth=(user, password))
         if response.status_code != 200:
             raise AssertionError("API returned status code {}. Response: {}. URL: {}".format(response.status_code, response.content, create_project_url))
@@ -450,7 +449,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             self.pi_email = given_pi_email
         else:
             try:
-                self.pi_email = self._get_order_detail()['project_pi_email']
+                self.pi_email = self._get_order_detail()['fields']['project_pi_email']
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
             except Exception, e:
                 logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
@@ -463,28 +462,31 @@ class GrusProjectDeliverer(ProjectDeliverer):
             logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
             raise e
     
-    def _set_binfo_details(self):
+    def _set_other_member_details(self, other_member_emails=[]):
         """
-            Set bioinfo contact details if avilable, this is not mandatory so
+            Set other contact details if avilable, this is not mandatory so
             the method will not raise error if it could not find any contact
         """
-        self.binfo_email, self.binfo_snic_id = (None, None)
-        # try getting bioinfo contact email
+        self.other_member_snic_ids = []
+        # try getting appropriate contact emails
         try:
-            self.binfo_email = self._get_order_detail()['project_bx_email']
-            assert self.binfo_email #check its not empty string
-            logger.info("Bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_email))
+            prj_order = self._get_order_detail()
+            owner_email = prj_order.get('owner', {}).get('email')
+            if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
+                other_member_emails.append(owner_email)
+            binfo_email = prj_order.get('fields', {}).get('project_bx_email')
+            if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
+                other_member_emails.append(binfo_email)
         except:
-            logger.warning("Was not able to get bioinfo contact for project {}".format(self.projectid))
-        # try getting snic id for bioinfo contact
-        if self.binfo_email == self.pi_email:
-            logger.info("Bioinfo contact is same as PI, so will be ignored and not be used")
-        elif self.binfo_email:
+            pass # nothing to worry, just move on
+        if other_member_emails:
+            logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
+        # try getting snic id for other emails if any
+        for uemail in other_member_emails:
             try:
-                self.binfo_snic_id = self._get_user_snic_id(self.binfo_email)
-                logger.info("SNIC id for bioinfo contact for project {} found: {}".format(self.projectid, self.binfo_snic_id))
+                self.other_member_snic_ids.append(self._get_user_snic_id(uemail))
             except:
-                logger.warning("Was not able to get SNIC id for bioinfo contact with email {}".format(self.binfo_email))
+                logger.warning("Was not able to get SNIC id for email {}, so that user will not be included in the GRUS project".format(uemail))
         
     def _get_user_snic_id(self, uemail):
         user = self.config_snic.get('snic_api_user')
@@ -525,7 +527,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         response = requests.get(get_project_url, headers=headers)
         if response.status_code != 200:
             raise AssertionError("Status code returned when trying to get PI email from project in order portal: {} was not 200. Response was: {}".format(portal_id, response.content))
-        return json.loads(response.content)['fields']        
+        return json.loads(response.content)
 
 
 class GrusSampleDeliverer(SampleDeliverer):
