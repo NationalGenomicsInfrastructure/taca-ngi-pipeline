@@ -56,7 +56,7 @@ def check_mover_version():
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -72,10 +72,11 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
-        self.pi_email  = pi_email
+        self._set_pi_details(pi_email) # set PI email and SNIC id
+        self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
-
+    
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this sample. If a sampleentry
         dict is supplied, it will be used instead of fethcing from database
@@ -213,7 +214,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         elif self.get_delivery_status() == 'IN_PROGRESS':
             logger.error("Project {} is already under delivery. No multiple mover deliveries are allowed".format(
                     self.projectid))
-            raise DelivererInterruptedError("Proejct already under delivery with Mover")
+            raise DelivererInterruptedError("Project already under delivery with Mover")
         elif self.get_delivery_status() == 'PARTIAL':
             logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(str(self)))
             if proceed_or_not("Do you want to proceed (yes/no): "):
@@ -234,30 +235,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
         status = True
         #otherwise lock the delivery by creating the folder
         create_folder(hard_stagepath)
-        #now find the PI mail which is needed to create the delivery project
-        if self.pi_email is None:
-            try:
-                self.pi_email = self._get_pi_email()
-                logger.info("email for PI for project {} found: {}".format(self.projectid, self.pi_email))
-            except Exception, e:
-                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
-                # print the traceback, not only error message -> isn't it something more useful?
-                logger.exception(e)
-                status = False
-                return status
-        else:
-            logger.warning("email for PI for project {} specified by user: {}".format(self.projectid,
-                        self.pi_email))
-        #and now get the pi PID from snic
-        pi_id = ''
-        try:
-            pi_id = self._get_pi_id()
-            logger.info("PI-id for delivering of project {} is {}".format(self.projectid, pi_id))
-        except Exception, e:
-            logger.error("Cannot fetch pi_id from snic API. Error says: {}".format(str(e)))
-            logger.exception(e)
-            status = False
-            return status
         
         # connect to charon, return list of sample objects that have been staged
         try:
@@ -321,7 +298,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         # create a delivery project id
         supr_name_of_delivery = ''
         try:
-            delivery_project_info = self._create_delivery_project(pi_id, self.sensitive)
+            delivery_project_info = self._create_delivery_project()
             supr_name_of_delivery = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
         except Exception, e:
@@ -432,7 +409,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 samples_of_interest.append(sample_id)
         return samples_of_interest
 
-    def _create_delivery_project(self, pi_id, sensitive):
+    def _create_delivery_project(self):
         create_project_url = '{}/ngi_delivery/project/create/'.format(self.config_snic.get('snic_api_url'))
         user               = self.config_snic.get('snic_api_user')
         password           = self.config_snic.get('snic_api_password')
@@ -442,7 +419,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         data = {
             'ngi_project_name': self.projectid,
             'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
-            'pi_id': pi_id,
+            'pi_id': self.pi_snic_id,
             'start_date': today.strftime(supr_date_format),
             'end_date': three_months_from_now.strftime(supr_date_format),
             'continuation_name': '',
@@ -452,41 +429,89 @@ class GrusProjectDeliverer(ProjectDeliverer):
             'api_opaque_data': '',
             'ngi_ready': False,
             'ngi_delivery_status': '',
-            'ngi_sensitive_data': sensitive
-        }
-
+            'ngi_sensitive_data': self.sensitive,
+            'member_ids': self.other_member_snic_ids
+            }
         response = requests.post(create_project_url, data=json.dumps(data), auth=(user, password))
         if response.status_code != 200:
             raise AssertionError("API returned status code {}. Response: {}. URL: {}".format(response.status_code, response.content, create_project_url))
         result = json.loads(response.content)
         return result
 
-    def _get_pi_id(self):
+    def _set_pi_details(self, given_pi_email=None):
+        """
+            Set PI email address and PI SNIC ID using PI email
+        """
+        self.pi_email, self.pi_snic_id = (None, None)
+        # try getting PI email
+        if given_pi_email:
+            logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
+            self.pi_email = given_pi_email
+        else:
+            try:
+                self.pi_email = self._get_order_detail()['fields']['project_pi_email']
+                logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
+            except Exception, e:
+                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
+                raise e
+        # try getting PI SNIC ID
+        try:
+            self.pi_snic_id = self._get_user_snic_id(self.pi_email)
+            logger.info("SNIC PI-id for delivering of project {} is {}".format(self.projectid, self.pi_snic_id))
+        except Exception, e:
+            logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
+            raise e
+    
+    def _set_other_member_details(self, other_member_emails=[], include_owner=False):
+        """
+            Set other contact details if avilable, this is not mandatory so
+            the method will not raise error if it could not find any contact
+        """
+        self.other_member_snic_ids = []
+        # try getting appropriate contact emails
+        try:
+            prj_order = self._get_order_detail()
+            if include_owner:
+                owner_email = prj_order.get('owner', {}).get('email')
+                if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
+                    other_member_emails.append(owner_email)
+            binfo_email = prj_order.get('fields', {}).get('project_bx_email')
+            if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
+                other_member_emails.append(binfo_email)
+        except (AssertionError, ValueError) as e:
+            pass # nothing to worry, just move on
+        if other_member_emails:
+            logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
+        # try getting snic id for other emails if any
+        for uemail in other_member_emails:
+            try:
+                self.other_member_snic_ids.append(self._get_user_snic_id(uemail))
+            except:
+                logger.warning("Was not able to get SNIC id for email {}, so that user will not be included in the GRUS project".format(uemail))
+        
+    def _get_user_snic_id(self, uemail):
+        user = self.config_snic.get('snic_api_user')
+        password = self.config_snic.get('snic_api_password')
         get_user_url = '{}/person/search/'.format(self.config_snic.get('snic_api_url'))
-        user         = self.config_snic.get('snic_api_user')
-        password     = self.config_snic.get('snic_api_password')
-        params   = {'email_i': self.pi_email}
+        params   = {'email_i': uemail}
         response = requests.get(get_user_url, params=params, auth=(user, password))
-
         if response.status_code != 200:
-            raise AssertionError("Status code returned when trying to get PI id for email: {} was not 200. Response was: {}".format(self.pi_email, response.content))
+            raise AssertionError("Unexpected code returned when trying to get SNIC id for email: {}. Response was: {}".format(uemail, response.content))
         result = json.loads(response.content)
         matches = result.get("matches")
         if matches is None:
             raise AssertionError('The response returned unexpected data')
         if len(matches) < 1:
-            raise AssertionError("There were no hits in SUPR for email: {}".format(self.pi_email))
+            raise AssertionError("There was no hit in SUPR for email: {}".format(uemail))
         if len(matches) > 1:
-            raise AssertionError("There we more than one hit in SUPR for email: {}".format(self.pi_email))
+            raise AssertionError("There were more than one hit in SUPR for email: {}".format(uemail))
+        return matches[0].get("id")
 
-        pi_id = matches[0].get("id")
-        return pi_id
-
-    def _get_pi_email(self):
-        url      = self.config_statusdb.get('url')
+    def _get_order_detail(self):
+        url = self.config_statusdb.get('url')
         username = self.config_statusdb.get('username')
         password = self.config_statusdb.get('password')
-        port     = self.config_statusdb.get('port')
+        port = self.config_statusdb.get('port')
         status_db_url = 'http://{}:{}@{}:{}'.format(username, password, url, port)
         status_db = couchdb.Server(status_db_url)
         projects_db = status_db['projects']
@@ -499,12 +524,11 @@ class GrusProjectDeliverer(ProjectDeliverer):
         portal_id = rows[0].value
         #now get the PI email from order portal API
         get_project_url = '{}/v1/order/{}'.format(self.orderportal.get('orderportal_api_url'), portal_id)
-        headers = {'X-OrderPortal-API-key': '{}'.format(self.orderportal.get('orderportal_api_token'))}
+        headers = {'X-OrderPortal-API-key': self.orderportal.get('orderportal_api_token')}
         response = requests.get(get_project_url, headers=headers)
         if response.status_code != 200:
             raise AssertionError("Status code returned when trying to get PI email from project in order portal: {} was not 200. Response was: {}".format(portal_id, response.content))
-        pi_email = json.loads(response.content)['fields']['project_pi_email']
-        return pi_email
+        return json.loads(response.content)
 
 
 class GrusSampleDeliverer(SampleDeliverer):
