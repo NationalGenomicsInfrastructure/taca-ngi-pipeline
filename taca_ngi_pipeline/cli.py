@@ -84,12 +84,12 @@ def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, forc
             is_flag=True,
             default = False,
             help='Perform all the delivery actions but does not run to_mover (to be used for semi-manual deliveries)')
-@click.option('--include-user-grus',
+@click.option('--add-user',
             multiple=True,
             type=click.STRING,
             help='User email address to add in GRUS delivery project. Multiple user can be given by calling parameter multiple times')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, include_user_grus=None):
+def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None):
     """ Deliver the specified projects to the specified destination
     """
     if ctx.parent.params['cluster'] == 'bianca':
@@ -127,7 +127,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 pi_email=pi_email,
                 sensitive=sensitive,
                 hard_stage_only=hard_stage_only,
-                include_user_grus=list(set(include_user_grus)),
+                add_user=list(set(add_user)),
                 **ctx.parent.params)
         _exec_fn(d, d.deliver_project)
 

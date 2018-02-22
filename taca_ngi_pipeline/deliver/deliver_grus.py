@@ -56,7 +56,7 @@ def check_mover_version():
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, include_user_grus=None, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -73,7 +73,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
         self._set_pi_details(pi_email) # set PI email and SNIC id
-        self._set_other_member_details(include_user_grus) # set SNIC id for other project members
+        self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
     
@@ -462,7 +462,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
             raise e
     
-    def _set_other_member_details(self, other_member_emails=[]):
+    def _set_other_member_details(self, other_member_emails=[], include_owner=False):
         """
             Set other contact details if avilable, this is not mandatory so
             the method will not raise error if it could not find any contact
@@ -471,13 +471,14 @@ class GrusProjectDeliverer(ProjectDeliverer):
         # try getting appropriate contact emails
         try:
             prj_order = self._get_order_detail()
-            owner_email = prj_order.get('owner', {}).get('email')
-            if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
-                other_member_emails.append(owner_email)
+            if include_owner:
+                owner_email = prj_order.get('owner', {}).get('email')
+                if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
+                    other_member_emails.append(owner_email)
             binfo_email = prj_order.get('fields', {}).get('project_bx_email')
             if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
                 other_member_emails.append(binfo_email)
-        except:
+        except (AssertionError, ValueError) as e:
             pass # nothing to worry, just move on
         if other_member_emails:
             logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
