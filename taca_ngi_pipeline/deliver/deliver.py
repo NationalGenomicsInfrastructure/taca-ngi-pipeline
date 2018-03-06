@@ -335,11 +335,6 @@ class Deliverer(object):
         try:
             with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
                 db_conf = yaml.load(db_cred_file)['statusdb']
-        except Exception as e:
-            logger.warning("Reading DB config failed due to {}. Meta info will not be saved".format(e))
-            return False
-        # Upload metainfo to couchdb, if fails just move on
-        try:
             sdb = db.statusdb_session(db_conf, db="projects")
             proj_obj = sdb.get_project(self.projectname)
             meta_info_dict = proj_obj.get("staged_files", {})
