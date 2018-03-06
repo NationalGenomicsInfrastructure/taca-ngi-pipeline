@@ -78,7 +78,7 @@ def update_sample(dbc, projectid, sampleid, **kwargs):
     return _wrap_database_query(dbc.sample_update, projectid, sampleid, **kwargs)
 
 class statusdb_session(object):
-    """Small wrapper class for couchdb utils"""
+    """Small wrapper class for couchdb utils. Made it as class to allow room for expansion"""
     def __init__(self, config, db=None):
         import couchdb #importing here just incase not to break other methods
         duser = config.get("username")
@@ -91,7 +91,7 @@ class statusdb_session(object):
         if not self.connection:
             raise("Couchdb connection failed for url {}".format(display_url_string))
         if db:
-            self._set_db_connection(db)
+            self.db_connection = self.connection[db]
     
     def get_project(self, project):
         try:
@@ -106,7 +106,3 @@ class statusdb_session(object):
             db.save(ddoc)
         except Exception as e:
             raise Exception("Failed saving document due to {}".format(e))
-    
-    def _set_db_connection(self, db):
-        self.db_connection = self.connection[db]
-
