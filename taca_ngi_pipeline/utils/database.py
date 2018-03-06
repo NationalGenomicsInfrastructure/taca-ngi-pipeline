@@ -89,7 +89,7 @@ class statusdb_session(object):
         display_url_string = "http://{}:{}@{}:{}".format(duser, "*********", durl, dport)
         self.connection = couchdb.Server(url=durl_string)
         if not self.connection:
-            raise("Couchdb connection failed for url {}".format(display_url_string))
+            raise Exception("Couchdb connection failed for url {}".format(display_url_string))
         if db:
             self.db_connection = self.connection[db]
     
