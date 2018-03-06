@@ -2,7 +2,7 @@ __author__ = 'Pontus'
 
 from glob import iglob
 from logging import getLogger
-from os import path, walk
+from os import path, walk, sep as os_sep
 from taca.utils.misc import hashfile
 
 logger = getLogger(__name__)
@@ -100,3 +100,34 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
                 raise PatternNotMatchedException(msg)
             logger.warning(msg)
 
+def parse_hash_file(hfile, hash_algorithm="md5", root_path="", files_filter=None):
+    """Parse the hash file and return dict with hash value and file size
+       Files are grouped based on parent directory relative to stage
+       if 'files_filter' is provided only info for those files are given
+    """
+    mdict = {}
+    with open(hfile, 'r') as hfl:
+        for hl in hfl:
+            hl = hl.strip()
+            if files_filter and not any(map(lambda pat: pat in hl, files_filter)):
+                continue
+            hval, fnm = hl.split()
+            fkey = fnm.split(os_sep)[0] if os_sep in fnm else path.splitext(fnm)[0]
+            if fkey not in mdict:
+                mdict[fkey] = {}
+            mdict[fkey][fnm] = {'{}_sum'.format(hash_algorithm): hval,
+                                'size_in_bytes': path.getsize(path.join(root_path, fnm))}
+        return mdict
+
+def merge_dicts(mdict, sdict):
+    """Merge the 2 given dictioneries, if a key already exists it is
+       replaced/updated with new values depending upon data types
+    """
+    for k, v in sdict.iteritems():
+        if isinstance(v, dict) and isinstance(mdict.get(k), dict):
+            mdict[k] = merge_dicts(mdict[k], v)
+        elif isinstance(v, list) and isinstance(mdict.get(k), list):
+            mdict[k] = list(set(mdict[k] + v))
+        else:
+            mdict[k] = v
+    return mdict
