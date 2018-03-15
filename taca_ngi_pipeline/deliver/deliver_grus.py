@@ -23,6 +23,7 @@ from ngi_pipeline.database.classes import CharonSession, CharonError
 from taca.utils.filesystem import do_copy, create_folder
 from taca.utils.config import CONFIG
 
+from ..utils.database import statusdb_session
 from deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
 
 logger = logging.getLogger(__name__)
@@ -508,13 +509,8 @@ class GrusProjectDeliverer(ProjectDeliverer):
         return matches[0].get("id")
 
     def _get_order_detail(self):
-        url = self.config_statusdb.get('url')
-        username = self.config_statusdb.get('username')
-        password = self.config_statusdb.get('password')
-        port = self.config_statusdb.get('port')
-        status_db_url = 'http://{}:{}@{}:{}'.format(username, password, url, port)
-        status_db = couchdb.Server(status_db_url)
-        projects_db = status_db['projects']
+        status_db = statusdb_session(self.config_statusdb)
+        projects_db = status_db.connection['projects']
         view = projects_db.view('order_portal/ProjectID_to_PortalID')
         rows = view[self.projectid].rows
         if len(rows) < 1:

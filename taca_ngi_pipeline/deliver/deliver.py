@@ -2,12 +2,14 @@
     Module for controlling deliveries of samples and projects
 """
 import datetime
+import glob
 import json
 import logging
 import os
 import re
 import signal
 import shutil
+import yaml
 
 from taca.utils.config import CONFIG
 from taca.utils.filesystem import create_folder, chdir
@@ -320,6 +322,34 @@ class Deliverer(object):
                 raise DelivererError(
                     "the path '{}' could not be expanded - reason: {}".format(
                         path, e))
+    
+    def aggregate_meta_info(self):
+        """ A method to collect meta info about delivered files (like size, md5 value)
+            Which files are interested (by default only 'fastq' and 'bam' files) can be
+            controlled by setting 'files_interested' in 'aggregate_meta_info' section.
+            It needs a database credentials file to put the aggregated info.
+        """
+        save_meta_info = getattr(self, 'save_meta_info', False)
+        if not save_meta_info:
+            return False
+        try:
+            with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
+                db_conf = yaml.load(db_cred_file)['statusdb']
+            sdb = db.statusdb_session(db_conf, db="projects")
+            proj_obj = sdb.get_project(self.projectname)
+            meta_info_dict = proj_obj.get("staged_files", {})
+            staging_path = self.expand_path(self.stagingpath)
+            hash_files = glob.glob(os.path.join(staging_path, "*.{}".format(self.hash_algorithm)))
+            for hash_file in hash_files:
+                hash_dict = fs.parse_hash_file(hash_file, hash_algorithm=self.hash_algorithm, root_path=staging_path, files_filter=['.fastq', '.bam'])
+                meta_info_dict = fs.merge_dicts(meta_info_dict, hash_dict)
+            proj_obj["staged_files"] = meta_info_dict
+            sdb.save_db_doc(proj_obj)
+            logger.info("Updated metainfo for project {} with id {} in StatusDB".format(self.projectid, proj_obj.get("_id")))
+            return True
+        except Exception as e:
+            logger.warning("Was not able to update metainfo due to error {}".format(e))
+            return False
 
 
 class ProjectDeliverer(Deliverer):
@@ -448,6 +478,8 @@ class ProjectDeliverer(Deliverer):
             if os.path.exists(self.expand_path(self.stagingpath)):
                 # Try to deliver any miscellaneous files for the project (like reports, analysis)
                 ProjectMiscDeliverer(self.projectid).deliver_misc_data()
+                # Try aggregate meta info and update in appropriate DB
+                self.aggregate_meta_info()
             # query the database whether all samples in the project have been sucessfully delivered
             if self.all_samples_delivered():
                 # this is the only delivery status we want to set on the project level, in order to avoid concurrently
