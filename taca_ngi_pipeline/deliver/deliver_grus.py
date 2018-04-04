@@ -73,15 +73,16 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
-        self._set_pi_details(pi_email) # set PI email and SNIC id
-        self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
+        if self.orderportal:
+            self._set_pi_details(pi_email) # set PI email and SNIC id
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
-    
+
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this sample. If a sampleentry
         dict is supplied, it will be used instead of fethcing from database
-        
+
         :params sampleentry: a database sample entry to use instead of
         fetching from db
         :returns: the delivery status of this sample as a string
@@ -236,7 +237,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         status = True
         #otherwise lock the delivery by creating the folder
         create_folder(hard_stagepath)
-        
+
         # connect to charon, return list of sample objects that have been staged
         try:
             samples_to_deliver = self.get_samples_from_charon(delivery_status="STAGED")
@@ -339,7 +340,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         '''
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token='NO-TOKEN')
-    
+
     def get_delivery_token_in_charon(self):
         '''fetches delivery_token from Charon
         '''
@@ -385,7 +386,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if self.hard_stage_only:
             logger.warning("to_mover command not executed, only hard-staging done. Do what you need to do and then run: {}".format(" ".join(cmd)))
             return "manually-set-up"
-        
+
         try:
             output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
@@ -462,7 +463,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         except Exception, e:
             logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
             raise e
-    
+
     def _set_other_member_details(self, other_member_emails=[], include_owner=False):
         """
             Set other contact details if avilable, this is not mandatory so
@@ -489,7 +490,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 self.other_member_snic_ids.append(self._get_user_snic_id(uemail))
             except:
                 logger.warning("Was not able to get SNIC id for email {}, so that user will not be included in the GRUS project".format(uemail))
-        
+
     def _get_user_snic_id(self, uemail):
         user = self.config_snic.get('snic_api_user')
         password = self.config_snic.get('snic_api_password')
