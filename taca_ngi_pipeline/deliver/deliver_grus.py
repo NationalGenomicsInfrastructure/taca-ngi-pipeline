@@ -89,7 +89,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         """
         dbentry = dbentry or self.db_entry()
         if dbentry.get('delivery_token'):
-            if dbentry.get('delivery_token') != 'NO-TOKEN':
+            if dbentry.get('delivery_token') not in ['NO-TOKEN', 'not_under_delivery'] :
                 return 'IN_PROGRESS' #it means that at least some samples are under delivery
         if  dbentry.get('delivery_status'):
             if dbentry.get('delivery_status') == 'DELIVERED':
