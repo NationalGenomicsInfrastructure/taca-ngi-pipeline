@@ -92,14 +92,17 @@ class statusdb_session(object):
             raise Exception("Couchdb connection failed for url {}".format(display_url_string))
         if db:
             self.db_connection = self.connection[db]
-    
+
     def get_project(self, project):
+        choose_view = "project/project_name"
+        if "_" not in project:
+            choose_view = "project/project_id"
         try:
             proj_db = self.connection["projects"]
-            return [proj_db.get(k.id) for k in proj_db.view("project/project_name", reduce=False) if k.key == project][0]
+            return [proj_db.get(k.id) for k in proj_db.view(choose_view, reduce=False) if k.key == project][0]
         except Exception as e:
             raise Exception("Failed getting project due to {}".format(e))
-    
+
     def save_db_doc(self, ddoc, db=None):
         try:
             db = db or getattr(self, "db_connection")
