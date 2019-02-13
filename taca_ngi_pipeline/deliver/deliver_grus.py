@@ -313,7 +313,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             self.save_delivery_token_in_charon(delivery_token)
             #memorise the delivery project so I know each NGi project to how many delivery projects it has been sent
             self.add_supr_name_delivery_in_charon(supr_name_of_delivery)
-            self.add_supr_name_delivery_in_statusdb(supr_name_of_delivery, self.projectid)
+            self.add_supr_name_delivery_in_statusdb(supr_name_of_delivery)
             logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
                                                                                     supr_name_of_delivery,
                                                                                     delivery_token))
@@ -370,11 +370,14 @@ class GrusProjectDeliverer(ProjectDeliverer):
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
-    def add_supr_name_delivery_in_statusdb(self, supr_name_of_delivery, projectid):
+    def add_supr_name_delivery_in_statusdb(self, supr_name_of_delivery):
         '''Updates delivery_projects in StatusDB at project level
         '''
+        save_meta_info = getattr(self, 'save_meta_info', False)
+        if not save_meta_info:
+            return
         status_db = statusdb_session(self.config_statusdb)
-        project_page=json.loads(status_db.get_project(projectid))
+        project_page=json.loads(json.dumps(status_db.get_project(self.projectid)))
         dprojs=[]
         if 'delivery_projects' in project_page:
             dprojs=project_page['delivery_projects']
@@ -384,6 +387,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         project_page['delivery_projects'] = dprojs
         try:
             status_db.connection['projects'].save(project_page)
+            logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, supr_name_of_delivery))
         except Exception, e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(projectid, e))
             logger.exception(e)
