@@ -377,7 +377,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if not save_meta_info:
             return
         status_db = statusdb_session(self.config_statusdb)
-        project_page=json.loads(json.dumps(status_db.get_project(self.projectid)))
+        project_page=status_db.get_project(self.projectid)
         dprojs=[]
         if 'delivery_projects' in project_page:
             dprojs=project_page['delivery_projects']
