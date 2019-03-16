@@ -342,7 +342,7 @@ class Deliverer(object):
             hash_files = glob.glob(os.path.join(staging_path, "{}.{}".format(self.sampleid, self.hash_algorithm)))
             curr_time = datetime.datetime.now().__str__()
             for hash_file in hash_files:
-                hash_dict = fs.parse_hash_file(hash_file, curr_time, hash_algorithm=self.hash_algorithm, root_path=staging_path, files_filter=['.fastq', '.bam'], curr_time)
+                hash_dict = fs.parse_hash_file(hash_file, curr_time, hash_algorithm=self.hash_algorithm, root_path=staging_path, files_filter=['.fastq', '.bam'])
                 meta_info_dict = fs.merge_dicts(meta_info_dict, hash_dict)
             proj_obj["staged_files"] = meta_info_dict
             sdb.save_db_doc(proj_obj)
