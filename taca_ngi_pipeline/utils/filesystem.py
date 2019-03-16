@@ -100,7 +100,7 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
                 raise PatternNotMatchedException(msg)
             logger.warning(msg)
 
-def parse_hash_file(hfile, hash_algorithm="md5", root_path="", files_filter=None):
+def parse_hash_file(hfile, last_modified, hash_algorithm="md5", root_path="", files_filter=None):
     """Parse the hash file and return dict with hash value and file size
        Files are grouped based on parent directory relative to stage
        if 'files_filter' is provided only info for those files are given
@@ -116,7 +116,8 @@ def parse_hash_file(hfile, hash_algorithm="md5", root_path="", files_filter=None
             if fkey not in mdict:
                 mdict[fkey] = {}
             mdict[fkey][fnm] = {'{}_sum'.format(hash_algorithm): hval,
-                                'size_in_bytes': path.getsize(path.join(root_path, fnm))}
+                                'size_in_bytes': path.getsize(path.join(root_path, fnm)),
+                                'last_modified': last_modified}
         return mdict
 
 def merge_dicts(mdict, sdict):
