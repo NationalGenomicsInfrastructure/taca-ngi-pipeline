@@ -39,7 +39,7 @@ class DelivererRsyncError(DelivererError):
 
 def _signal_handler(sgnal, frame):
     """ A custom signal handler which will raise a DelivererInterruptedError
-        :raises DelivererInterruptedError: 
+        :raises DelivererInterruptedError:
             this exception will be raised
     """
     raise DelivererInterruptedError(
@@ -59,7 +59,7 @@ def _timestamp(days=None):
 
 
 class Deliverer(object):
-    """ 
+    """
         A (abstract) superclass with functionality for handling deliveries
     """
 
@@ -68,7 +68,7 @@ class Deliverer(object):
             :param string projectid: id of project to deliver
             :param string sampleid: id of sample to deliver
             :param bool no_checksum: if True, skip the checksum computation
-            :param string hash_algorithm: algorithm to use for calculating 
+            :param string hash_algorithm: algorithm to use for calculating
                 file checksums, defaults to sha1
         """
         # override configuration options with options given on the command line
@@ -167,18 +167,18 @@ class Deliverer(object):
         return dbentry.get('delivery_status', 'NOT_DELIVERED')
 
     def gather_files(self):
-        """ This method will locate files matching the patterns specified in 
+        """ This method will locate files matching the patterns specified in
             the config and compute the checksum and construct the staging path
             according to the config.
-            
+
             The config should contain the key 'files_to_deliver', which should
             be a list of tuples with source path patterns and destination path
-            patterns. The source path can be a file glob and can refer to a 
+            patterns. The source path can be a file glob and can refer to a
             folder or file. File globs will be expanded and folders will be
             traversed to include everything beneath.
-             
-            :returns: A generator of tuples with source path, 
-                destination path and the checksum of the source file 
+
+            :returns: A generator of tuples with source path,
+                destination path and the checksum of the source file
                 (or None if source is a folder)
         """
         return fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in self.files_to_deliver],
@@ -186,12 +186,12 @@ class Deliverer(object):
                                hash_algorithm=self.hash_algorithm)
 
     def stage_delivery(self):
-        """ Stage a delivery by symlinking source paths to destination paths 
-            according to the returned tuples from the gather_files function. 
-            Checksums will be written to a digest file in the staging path. 
+        """ Stage a delivery by symlinking source paths to destination paths
+            according to the returned tuples from the gather_files function.
+            Checksums will be written to a digest file in the staging path.
             Failure to stage individual files will be logged as warnings but will
-            not terminate the staging. 
-            
+            not terminate the staging.
+
             :raises DelivererError: if an unexpected error occurred
         """
         digestpath = self.staging_digestfile()
@@ -275,7 +275,7 @@ class Deliverer(object):
             os.path.join(
                 self.stagingpath,
                 "{}.lst".format(self.sampleid)))
- 
+
     def transfer_log(self):
         """
             :returns: path prefix to the transfer log files. The suffixes will
@@ -288,23 +288,23 @@ class Deliverer(object):
                                datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))))
 
     def expand_path(self, path):
-        """ Will expand a path by replacing placeholders with correspondingly 
+        """ Will expand a path by replacing placeholders with correspondingly
             named attributes belonging to this Deliverer instance. Placeholders
             are specified according to the pattern '<[A-Z]>' and the
             corresponding attribute that will replace the placeholder should be
             identically named but with all lowercase letters.
-            
+
             For example, "this/is/a/path/to/<PROJECTID>/and/<SAMPLEID>" will
             expand by substituting <PROJECTID> with self.projectid and
             <SAMPLEID> with self.sampleid
-            
+
             If the supplied path does not contain any placeholders or is None,
             it will be returned unchanged.
-            
+
             :params string path: the path to expand
             :returns: the supplied path will all placeholders substituted with
                 the corresponding instance attributes
-            :raises DelivererError: if a corresponding attribute for a 
+            :raises DelivererError: if a corresponding attribute for a
                 placeholder could not be found
         """
         try:
@@ -322,7 +322,7 @@ class Deliverer(object):
                 raise DelivererError(
                     "the path '{}' could not be expanded - reason: {}".format(
                         path, e))
-    
+
     def aggregate_meta_info(self):
         """ A method to collect meta info about delivered files (like size, md5 value)
             Which files are interested (by default only 'fastq' and 'bam' files) can be
@@ -339,13 +339,14 @@ class Deliverer(object):
             proj_obj = sdb.get_project(self.projectname)
             meta_info_dict = proj_obj.get("staged_files", {})
             staging_path = self.expand_path(self.stagingpath)
-            hash_files = glob.glob(os.path.join(staging_path, "*.{}".format(self.hash_algorithm)))
+            hash_files = glob.glob(os.path.join(staging_path, "{}.{}".format(self.sampleid, self.hash_algorithm)))
+            curr_time = datetime.datetime.now().__str__()
             for hash_file in hash_files:
-                hash_dict = fs.parse_hash_file(hash_file, hash_algorithm=self.hash_algorithm, root_path=staging_path, files_filter=['.fastq', '.bam'])
+                hash_dict = fs.parse_hash_file(hash_file, curr_time, hash_algorithm=self.hash_algorithm, root_path=staging_path, files_filter=['.fastq', '.bam'])
                 meta_info_dict = fs.merge_dicts(meta_info_dict, hash_dict)
             proj_obj["staged_files"] = meta_info_dict
             sdb.save_db_doc(proj_obj)
-            logger.info("Updated metainfo for project {} with id {} in StatusDB".format(self.projectid, proj_obj.get("_id")))
+            logger.info("Updated metainfo for sample {} in project {} with id {} in StatusDB".format(self.sampleid, self.projectid, proj_obj.get("_id")))
             return True
         except Exception as e:
             logger.warning("Was not able to update metainfo due to error {}".format(e))
@@ -450,9 +451,9 @@ class ProjectDeliverer(Deliverer):
         return db.project_entry(db.dbcon(), self.projectid)
 
     def deliver_project(self):
-        """ Deliver all samples in a project to the destination specified by 
+        """ Deliver all samples in a project to the destination specified by
             deliverypath
-            
+
             :returns: True if all samples were delivered successfully, False if
                 any sample was not properly delivered or ready to be delivered
         """
@@ -462,12 +463,12 @@ class ProjectDeliverer(Deliverer):
                     str(self), self.expand_path(self.deliverypath)))
             else:
                 logger.info("Staging {}".format(str(self)))
-        
+
             if self.get_delivery_status() == 'DELIVERED' \
                     and not self.force:
                 logger.info("{} has already been delivered".format(str(self)))
                 return True
-            # right now, don't catch any errors since we're assuming any thrown 
+            # right now, don't catch any errors since we're assuming any thrown
             # errors needs to be handled by manual intervention
             status = True
             for sampleid in [sentry['sampleid'] for sentry in db.project_sample_entries(
@@ -478,8 +479,6 @@ class ProjectDeliverer(Deliverer):
             if os.path.exists(self.expand_path(self.stagingpath)):
                 # Try to deliver any miscellaneous files for the project (like reports, analysis)
                 ProjectMiscDeliverer(self.projectid).deliver_misc_data()
-                # Try aggregate meta info and update in appropriate DB
-                self.aggregate_meta_info()
             # query the database whether all samples in the project have been sucessfully delivered
             if self.all_samples_delivered():
                 # this is the only delivery status we want to set on the project level, in order to avoid concurrently
@@ -514,7 +513,7 @@ class ProjectDeliverer(Deliverer):
             raise
 
     def update_delivery_status(self, status="DELIVERED"):
-        """ Update the delivery_status field in the database to the supplied 
+        """ Update the delivery_status field in the database to the supplied
             status for the project specified by this instance
             :returns: the result from the underlying api call
             :raises taca_ngi_pipeline.utils.database.DatabaseError:
@@ -695,6 +694,8 @@ class SampleDeliverer(Deliverer):
                 self.acknowledge_delivery()
             else:
                 self.update_delivery_status(status="STAGED")
+                # Try aggregate meta info for staged sample and update in appropriate DB
+                self.aggregate_meta_info()
             return True
         except DelivererInterruptedError:
             self.update_delivery_status(status="NOT_DELIVERED")
@@ -704,7 +705,7 @@ class SampleDeliverer(Deliverer):
             raise
 
     def update_delivery_status(self, status="DELIVERED"):
-        """ Update the delivery_status field in the database to the supplied 
+        """ Update the delivery_status field in the database to the supplied
             status for the project and sample specified by this instance
             :returns: the result from the underlying api call
             :raises taca_ngi_pipeline.utils.database.DatabaseError:
