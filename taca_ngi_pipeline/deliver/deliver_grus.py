@@ -343,30 +343,14 @@ class GrusProjectDeliverer(ProjectDeliverer):
 
         shutil.copy(runfolder_archive, dst)
         shutil.copy(runfolder_md5file, dst)
-        question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
-        if not self.sensitive:
-            question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
-        if proceed_or_not(question):
-            logger.info("Delivering {} to GRUS with mover. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
-        else:
-            logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
-            return False
-        #set up delivery project (reusing code from deliver_project, should probably break this out)
-        supr_name_of_delivery = ''
-        try:
-            delivery_project_info = self._create_delivery_project()
-            supr_name_of_delivery = delivery_project_info['name']
-            logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
-        except Exception, e:
-            logger.error('Cannot create delivery project. Error says: {}'.format())
-            logger.exception(e)
 
         #invoke mover
-        delivery_token = self.do_delivery(supr_name_of_delivery)
+        delivery_id = self.delivery_id
+        delivery_token = self.do_delivery(delivery_id)
 
         if delivery_token:
             logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
-                                                                                    supr_name_of_delivery,
+                                                                                    delivery_id,
                                                                                     delivery_token))
 
 
@@ -481,7 +465,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         password           = self.config_snic.get('snic_api_password')
         supr_date_format = '%Y-%m-%d'
         today = datetime.date.today()
-        three_months_from_now = (today + relativedelta(months=+1)) #change back to three
+        three_months_from_now = (today + relativedelta(months=+3))
         data = {
             'ngi_project_name': self.projectid,
             'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
