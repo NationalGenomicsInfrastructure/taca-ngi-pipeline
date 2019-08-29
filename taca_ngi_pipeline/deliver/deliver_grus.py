@@ -337,10 +337,10 @@ class GrusProjectDeliverer(ProjectDeliverer):
         #stage the data
         dst = self.expand_path(self.stagingpathhard)
         path_to_data = self.expand_path(self.datapath)
-
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
 
+        create_folder(dst)
         shutil.copy(runfolder_archive, dst)
         shutil.copy(runfolder_md5file, dst)
 
