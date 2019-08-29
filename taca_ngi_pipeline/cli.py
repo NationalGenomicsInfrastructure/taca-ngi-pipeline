@@ -13,7 +13,7 @@ from deliver import deliver as _deliver
 from deliver import deliver_mosler as _deliver_mosler
 from deliver import deliver_castor as _deliver_castor
 from deliver import deliver_grus as _deliver_grus
-from deliver import deliver_grus_run as _deliver_grus_run
+#from deliver import deliver_grus_run as _deliver_grus_run
 
 from deliver.deliver_grus import GrusProjectDeliverer
 
@@ -89,8 +89,12 @@ def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, forc
             multiple=True,
             type=click.STRING,
             help='User email address to add in GRUS delivery project. Multiple user can be given by calling parameter multiple times')
+@click.option('--fc-delivery',
+              default=False,
+              type=click.STRING,
+              help='Flowcell id for delivering whole Illumnina run folder. Requires --delivery-id')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None):
+def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fc_delivery=False, delivery_id=None):
     """ Deliver the specified projects to the specified destination
     """
     if ctx.parent.params['cluster'] == 'bianca':
@@ -122,55 +126,25 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             if order_portal == None:
                 logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(order_portal)
-            d = _deliver_grus.GrusProjectDeliverer(
-                projectid=pid,
-                pi_email=pi_email,
-                sensitive=sensitive,
-                hard_stage_only=hard_stage_only,
-                add_user=list(set(add_user)),
-                **ctx.parent.params)
-        _exec_fn(d, d.deliver_project)
-
-#Run folder delivery
-@deliver.command()
-@click.pass_context
-@click.argument('projectid', type=click.STRING, nargs=-1)
-@click.option('--fetch-data',
-              is_flag=True,
-              default=False,
-              help='Tar and gzip the relevant files from the run folder and rsync them to irma')
-@click.option('--sample-sheet',
-              default=None,
-              type=click.File('r'),
-              help='Modified sample sheet containing only information about the project to be delivered')
-@click.option('--deliver',
-               is_flag=True,
-               default=False,
-               help='Hard stage the run folder and deliver the data')
-
-def run_folder(ctx, projectid, fetch_data, sample_sheet, deliver):
-    """ Deliver run folder for given project
-    """
-    if ctx.parent.params['cluster'] != 'grus':
-        logger.error("run folder delivery is only available on GRUS")
-        return 1
-    for pid in projectid:
-#        if statusdb_config == None:
-#            logger.error('--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery')
-#            return 1
-#        taca.utils.config.load_yaml_config(statusdb_config)
-#        if snic_api_credentials == None:
-#            logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
-#            return 1
-        d = _deliver_grus_run.GrusProjectRunDeliverer(
-            projectid=pid,
-#            pi_email=pi_email,
-#            sensitive=sensitive,
-#            hard_stage_only=hard_stage_only,
-#            add_user=list(set(add_user)),
-            **ctx.parent.params)
-        d.deliver_project()
+            if fc_delivery:
+                d = _deliver_grus.GrusProjectDeliverer(
+                    projectid=pid,
+                    pi_email=pi_email,
+                    sensitive=sensitive,
+                    add_user=list(set(add_user)),
+                    fcid=fc_delivery,
+                    **ctx.parent.params)
+                _exec_fn(d, d.deliver_run_folder)
+            else:
+                taca.utils.config.load_yaml_config(order_portal)
+                d = _deliver_grus.GrusProjectDeliverer(
+                    projectid=pid,
+                    pi_email=pi_email,
+                    sensitive=sensitive,
+                    hard_stage_only=hard_stage_only,
+                    add_user=list(set(add_user)),
+                    **ctx.parent.params)
+                _exec_fn(d, d.deliver_project)
 
 # sample delivery
 @deliver.command()
