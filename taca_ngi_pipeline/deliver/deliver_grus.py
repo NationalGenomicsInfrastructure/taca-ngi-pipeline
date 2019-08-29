@@ -340,18 +340,45 @@ class GrusProjectDeliverer(ProjectDeliverer):
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
 
+        question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
+        if not self.sensitive:
+            question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
+        if proceed_or_not(question):
+            logger.info("Delivering {} to GRUS with mover. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
+        else:
+            logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
+            return False
+
+        status = True
+
         create_folder(dst)
-        shutil.copy(runfolder_archive, dst)
-        shutil.copy(runfolder_md5file, dst)
+        try:
+            shutil.copy(runfolder_archive, dst)
+            shutil.copy(runfolder_md5file, dst)
+            logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5_file, dst))
+        except IOError, e:
+            logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
+
+        delivery_id = ''
+        try:
+            delivery_project_info = self._create_delivery_project()
+            delivery_id = delivery_project_info['name']
+            logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, delivery_id))
+        except Exception, e:
+            logger.error('Cannot create delivery project. Error says: {}'.format())
+            logger.exception(e)
 
         #invoke mover
-        delivery_id = self.delivery_id
         delivery_token = self.do_delivery(delivery_id)
 
         if delivery_token:
             logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
                                                                                     delivery_id,
                                                                                     delivery_token))
+        else:
+            logger.error('Delivery project for project {} has not been created'.format(self.projectid))
+            status = False
+        return status
 
 
     def save_delivery_token_in_charon(self, delivery_token):
