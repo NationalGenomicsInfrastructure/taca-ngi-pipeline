@@ -131,6 +131,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                     projectid=pid,
                     pi_email=pi_email,
                     sensitive=sensitive,
+                    hard_stage_only=hard_stage_only,
                     add_user=list(set(add_user)),
                     fcid=fc_delivery,
                     **ctx.parent.params)
