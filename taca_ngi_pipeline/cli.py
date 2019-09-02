@@ -82,14 +82,18 @@ def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, forc
             help='flag to specify if data contained in the project is sensitive or not')
 @click.option('--hard-stage-only',
             is_flag=True,
-            default = False,
+            default=False,
             help='Perform all the delivery actions but does not run to_mover (to be used for semi-manual deliveries)')
 @click.option('--add-user',
             multiple=True,
             type=click.STRING,
             help='User email address to add in GRUS delivery project. Multiple user can be given by calling parameter multiple times')
+@click.option('--fc-delivery',
+              default=False,
+              type=click.STRING,
+              help='Flowcell id for delivering whole Illumnina run folder')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None):
+def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fc_delivery=False):
     """ Deliver the specified projects to the specified destination
     """
     if ctx.parent.params['cluster'] == 'bianca':
@@ -128,9 +132,13 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 sensitive=sensitive,
                 hard_stage_only=hard_stage_only,
                 add_user=list(set(add_user)),
+                fcid=fc_delivery,
                 **ctx.parent.params)
-        _exec_fn(d, d.deliver_project)
 
+            if fc_delivery:
+                _exec_fn(d, d.deliver_run_folder)
+            else:
+                _exec_fn(d, d.deliver_project)
 
 # sample delivery
 @deliver.command()

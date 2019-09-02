@@ -57,7 +57,7 @@ def check_mover_version():
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fcid=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -78,6 +78,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
         self.sensitive = sensitive
         self.hard_stage_only = hard_stage_only
+        self.fcid = fcid
 
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this sample. If a sampleentry
@@ -330,6 +331,56 @@ class GrusProjectDeliverer(ProjectDeliverer):
             status = False
         return status
 
+    def deliver_run_folder(self):
+        '''Hard stages run folder and initiates delivery
+        '''
+        #stage the data
+        dst = self.expand_path(self.stagingpathhard)
+        path_to_data = self.expand_path(self.datapath)
+        runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
+        runfolder_md5file = runfolder_archive + ".md5"
+
+        question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
+        if not self.sensitive:
+            question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
+        if proceed_or_not(question):
+            logger.info("Delivering {} to GRUS with mover. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
+        else:
+            logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
+            return False
+
+        status = True
+
+        create_folder(dst)
+        try:
+            shutil.copy(runfolder_archive, dst)
+            shutil.copy(runfolder_md5file, dst)
+            logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
+        except IOError, e:
+            logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
+
+        delivery_id = ''
+        try:
+            delivery_project_info = self._create_delivery_project()
+            delivery_id = delivery_project_info['name']
+            logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, delivery_id))
+        except Exception, e:
+            logger.error('Cannot create delivery project. Error says: {}'.format())
+            logger.exception(e)
+
+        #invoke mover
+        delivery_token = self.do_delivery(delivery_id)
+
+        if delivery_token:
+            logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
+                                                                                    delivery_id,
+                                                                                    delivery_token))
+        else:
+            logger.error('Delivery project for project {} has not been created'.format(self.projectid))
+            status = False
+        return status
+
+
     def save_delivery_token_in_charon(self, delivery_token):
         '''Updates delivery_token in Charon at project level
         '''
@@ -538,7 +589,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         view = projects_db.view('order_portal/ProjectID_to_PortalID')
         rows = view[self.projectid].rows
         if len(rows) < 1:
-            raise AssertionError("Project {} not found in StatusDB: {}".format(self.projecid, url))
+            raise AssertionError("Project {} not found in StatusDB".format(self.projectid))
         if len(rows) > 1:
             raise AssertionError('Project {} has more than one entry in orderportal_db'.format(self.projectid))
         portal_id = rows[0].value
