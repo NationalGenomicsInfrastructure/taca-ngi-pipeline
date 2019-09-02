@@ -486,7 +486,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
         return samples_of_interest
 
     def _create_delivery_project(self):
-        print self.sensitive
         create_project_url = '{}/ngi_delivery/project/create/'.format(self.config_snic.get('snic_api_url'))
         user               = self.config_snic.get('snic_api_user')
         password           = self.config_snic.get('snic_api_password')
