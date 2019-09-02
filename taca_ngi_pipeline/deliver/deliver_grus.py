@@ -355,7 +355,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         try:
             shutil.copy(runfolder_archive, dst)
             shutil.copy(runfolder_md5file, dst)
-            logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5_file, dst))
+            logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError, e:
             logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
 

@@ -125,25 +125,19 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             if order_portal == None:
                 logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
                 return 1
+            taca.utils.config.load_yaml_config(order_portal)
+            d = _deliver_grus.GrusProjectDeliverer(
+                projectid=pid,
+                pi_email=pi_email,
+                sensitive=sensitive,
+                hard_stage_only=hard_stage_only,
+                add_user=list(set(add_user)),
+                fcid=fc_delivery,
+                **ctx.parent.params)
+
             if fc_delivery:
-                d = _deliver_grus.GrusProjectDeliverer(
-                    projectid=pid,
-                    pi_email=pi_email,
-                    sensitive=sensitive,
-                    hard_stage_only=hard_stage_only,
-                    add_user=list(set(add_user)),
-                    fcid=fc_delivery,
-                    **ctx.parent.params)
                 _exec_fn(d, d.deliver_run_folder)
             else:
-                taca.utils.config.load_yaml_config(order_portal)
-                d = _deliver_grus.GrusProjectDeliverer(
-                    projectid=pid,
-                    pi_email=pi_email,
-                    sensitive=sensitive,
-                    hard_stage_only=hard_stage_only,
-                    add_user=list(set(add_user)),
-                    **ctx.parent.params)
                 _exec_fn(d, d.deliver_project)
 
 # sample delivery
