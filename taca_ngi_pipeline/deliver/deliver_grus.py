@@ -589,7 +589,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         view = projects_db.view('order_portal/ProjectID_to_PortalID')
         rows = view[self.projectid].rows
         if len(rows) < 1:
-            raise AssertionError("Project {} not found in StatusDB: {}".format(self.projecid, url))
+            raise AssertionError("Project {} not found in StatusDB".format(self.projectid))
         if len(rows) > 1:
             raise AssertionError('Project {} has more than one entry in orderportal_db'.format(self.projectid))
         portal_id = rows[0].value
