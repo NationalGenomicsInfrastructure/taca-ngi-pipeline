@@ -135,10 +135,10 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 fcid=fc_delivery,
                 **ctx.parent.params)
 
-            if fc_delivery:
-                _exec_fn(d, d.deliver_run_folder)
-            else:
-                _exec_fn(d, d.deliver_project)
+        if fc_delivery:
+            _exec_fn(d, d.deliver_run_folder)
+        else:
+            _exec_fn(d, d.deliver_project)
 
 # sample delivery
 @deliver.command()
