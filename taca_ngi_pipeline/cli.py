@@ -117,15 +117,15 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             if statusdb_config == None:
                 logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(statusdb_config)
+            taca.utils.config.load_yaml_config(statusdb_config.name)
             if snic_api_credentials == None:
                 logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(snic_api_credentials)
+            taca.utils.config.load_yaml_config(snic_api_credentials.name)
             if order_portal == None:
                 logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(order_portal)
+            taca.utils.config.load_yaml_config(order_portal.name)
             d = _deliver_grus.GrusProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
@@ -231,11 +231,11 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
         if statusdb_config == None:
             logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
             return 1
-        taca.utils.config.load_yaml_config(statusdb_config)
+        taca.utils.config.load_yaml_config(statusdb_config.name)
         if snic_api_credentials == None:
             logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
             return 1
-        taca.utils.config.load_yaml_config(snic_api_credentials)
+        taca.utils.config.load_yaml_config(snic_api_credentials.name)
 
         d = _deliver_grus.GrusProjectDeliverer(
                 pid,
