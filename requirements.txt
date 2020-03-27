@@ -7,3 +7,4 @@ paramiko
 python-dateutil
 pyexcel
 openpyxl==2.6.1
+future

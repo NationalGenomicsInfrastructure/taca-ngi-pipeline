@@ -1,7 +1,7 @@
 __author__ = 'Pontus'
 
 from ngi_pipeline.database import classes as db
-
+from datetime import datetime
 
 class DatabaseError(Exception):
     pass
@@ -93,19 +93,74 @@ class statusdb_session(object):
         if db:
             self.db_connection = self.connection[db]
 
-    def get_project(self, project):
-        choose_view = "project/project_name"
-        if "_" not in project:
-            choose_view = "project/project_id"
-        try:
-            proj_db = self.connection["projects"]
-            return [proj_db.get(k.id) for k in proj_db.view(choose_view, reduce=False) if k.key == project][0]
-        except Exception as e:
-            raise Exception("Failed getting project due to {}".format(e))
+    def get_entry(self, name, use_id_view=False):
+        """Retrieve entry from given db for a given name.
+
+        :param name: unique name identifier (primary key, not the uuid)
+        :param db: name of db to fetch data from
+        """
+        if use_id_view:
+            view = self.id_view
+        else:
+            view = self.name_view
+        if not view.get(name, None):
+            if self.log:
+                self.log.warn("no entry '{}' in {}".format(name, self.db))
+            return None
+        return self.db.get(view.get(name))
 
     def save_db_doc(self, ddoc, db=None):
         try:
-            db = db or getattr(self, "db_connection")
+            db = db or self.db
             db.save(ddoc)
         except Exception as e:
             raise Exception("Failed saving document due to {}".format(e))
+
+    def get_project_flowcell(self, project_id, open_date="2015-01-01", date_format="%Y-%m-%d"):
+        """From information available in flowcell db connection collect the flowcell this project was sequenced
+
+        :param project_id: NGI project ID to get the flowcells
+        :param open_date: Open date of project to skip the check for all flowcells
+        :param date_format: The format of specified open_date
+        """
+        try:
+            open_date = datetime.strptime(open_date, date_format)
+        except:
+            open_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
+
+        project_flowcells = {}
+        date_sorted_fcs = sorted(self.proj_list.keys(), key=lambda k: datetime.strptime(k.split('_')[0], "%y%m%d"), reverse=True)
+        for fc in date_sorted_fcs:
+            fc_date, fc_name = fc.split('_')
+            if datetime.strptime(fc_date,'%y%m%d') < open_date:
+                break
+            if project_id in self.proj_list[fc] and fc_name not in project_flowcells.keys():
+                project_flowcells[fc_name] = {'name':fc_name,'run_name':fc, 'date':fc_date, 'db':self.db.name}
+
+        return project_flowcells
+
+class ProjectSummaryConnection(statusdb_session):
+    def __init__(self, config, dbname="projects"):
+        super(ProjectSummaryConnection, self).__init__(config)
+        self.db = self.connection[dbname]
+        self.name_view = {k.key:k.id for k in self.db.view("project/project_name", reduce=False)}
+        self.id_view = {k.key:k.id for k in self.db.view("project/project_id", reduce=False)}
+
+class SampleRunMetricsConnection(statusdb_session):
+    def __init__(self, config, dbname="samples"):
+        super(SampleRunMetricsConnection, self).__init__(config)
+        self.db = self.connection[dbname]
+
+class FlowcellRunMetricsConnection(statusdb_session):
+    def __init__(self, config, dbname="flowcells"):
+        super(FlowcellRunMetricsConnection, self).__init__(config)
+        self.db = self.connection[dbname]
+        self.name_view = {k.key:k.id for k in self.db.view("names/name", reduce=False)}
+        self.proj_list = {k.key:k.value for k in self.db.view("names/project_ids_list", reduce=False) if k.key}
+
+class X_FlowcellRunMetricsConnection(statusdb_session):
+    def __init__(self, config, dbname="x_flowcells"):
+        super(X_FlowcellRunMetricsConnection, self).__init__(config)
+        self.db = self.connection[dbname]
+        self.name_view = {k.key:k.id for k in self.db.view("names/name", reduce=False)}
+        self.proj_list = {k.key:k.value for k in self.db.view("names/project_ids_list", reduce=False) if k.key}

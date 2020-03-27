@@ -23,7 +23,7 @@ from ngi_pipeline.database.classes import CharonSession, CharonError
 from taca.utils.filesystem import do_copy, create_folder
 from taca.utils.config import CONFIG
 
-from ..utils.database import statusdb_session
+from ..utils.database import statusdb_session, ProjectSummaryConnection
 from deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
 
 logger = logging.getLogger(__name__)
@@ -427,8 +427,8 @@ class GrusProjectDeliverer(ProjectDeliverer):
         save_meta_info = getattr(self, 'save_meta_info', False)
         if not save_meta_info:
             return
-        status_db = statusdb_session(self.config_statusdb)
-        project_page=status_db.get_project(self.projectid)
+        status_db = ProjectSummaryConnection(self.config_statusdb)
+        project_page=status_db.get_entry(self.projectid, use_id_view=True)
         dprojs=[]
         if 'delivery_projects' in project_page:
             dprojs=project_page['delivery_projects']
@@ -437,7 +437,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
 
         project_page['delivery_projects'] = dprojs
         try:
-            status_db.connection['projects'].save(project_page)
+            status_db.save_db_doc(project_page)
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, supr_name_of_delivery))
         except Exception, e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(projectid, e))
