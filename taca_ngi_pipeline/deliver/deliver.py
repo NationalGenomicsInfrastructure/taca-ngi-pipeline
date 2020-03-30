@@ -490,7 +490,7 @@ class ProjectDeliverer(Deliverer):
                                     fcon=db.FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
                                     xcon=db.X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
                     xgen.generate_xml()
-                except:
+                except Exception as e:
                     self.LOG.warning("Fetching XML information failed due to '{}'".format(e))
                 logger.info('Generated XML files...')
             # Atleast one sample should have been staged/delivered for the following steps

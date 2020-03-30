@@ -98,9 +98,9 @@ class xml_generator(object):
         for sample in sorted(self.samples_delivered.keys()):
             # all the samples should exist, if not fail right away
             sample_seq_instrument = self.sample_aggregated_stat[sample]
-            for inst in sorted(sample_seq_instrument.keys()):
-                inst_stat = sample_seq_instrument[inst]
-                experiment = { 'alias' : "{}_{}_experiment".format(sample, inst),
+            for instrument in sorted(sample_seq_instrument.keys()):
+                inst_stat = sample_seq_instrument[instrument]
+                experiment = { 'alias' : "{}_{}_experiment".format(sample, instrument),
                                'title' : "Prep for {} sequenced in {}".format(sample, inst_stat['xml_text']),
                                'study' : self.project["project_id"],
                                'design' : self.project_design["design"].format(instrument=inst_stat['xml_text']),
@@ -112,7 +112,7 @@ class xml_generator(object):
                                'layout' : self.project_design["layout"],
                                'protocol' : self.project_design["protocol"],
                                'instrument' : inst_stat['xml_text'] }
-                run  = { 'alias' : "{}_{}_runs".format(sample, inst),
+                run  = { 'alias' : "{}_{}_runs".format(sample, instrument),
                          'exp_ref' : experiment['alias'],
                          'data_name' : sample,
                          'files' : self._generate_files_block(self.samples_delivered[sample], flowcells=inst_stat['runs']) }
