@@ -17,6 +17,7 @@ from taca.utils.misc import call_external_command
 from taca.utils import transfer
 from ..utils import database as db
 from ..utils import filesystem as fs
+from ..utils import nbis_xml_generator as xmlgen
 
 logger = logging.getLogger(__name__)
 
@@ -334,9 +335,9 @@ class Deliverer(object):
             return False
         try:
             with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
-                db_conf = yaml.load(db_cred_file)['statusdb']
-            sdb = db.statusdb_session(db_conf, db="projects")
-            proj_obj = sdb.get_project(self.projectname)
+                db_conf = yaml.safe_load(db_cred_file)['statusdb']
+            sdb = db.ProjectSummaryConnection(db_conf)
+            proj_obj = sdb.get_entry(self.projectname)
             meta_info_dict = proj_obj.get("staged_files", {})
             staging_path = self.expand_path(self.stagingpath)
             hash_files = glob.glob(os.path.join(staging_path, "{}.{}".format(self.sampleid, self.hash_algorithm)))
@@ -475,6 +476,23 @@ class ProjectDeliverer(Deliverer):
                     db.dbcon(), self.projectid).get('samples', [])]:
                 st = SampleDeliverer(self.projectid, sampleid).deliver_sample()
                 status = (status and st)
+            #If sthlm, generate xml files
+            if self.stage_only and getattr(self, 'save_meta_info', False):
+                logger.info("Fetching information for xml generation")
+                with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
+                    db_conf = yaml.safe_load(db_cred_file)['statusdb']
+                try:
+                    xgen = xmlgen.xml_generator(self.projectid, # statusdb project
+                                    outdir=self.expand_path('<ANALYSISPATH>/reports/'),
+                                    ignore_lib_prep=getattr(self, 'xmlgen_ignore_lib_prep', False), # boolean to ignore prep
+                                    LOG=logger, # log object for logging
+                                    pcon=db.ProjectSummaryConnection(db_conf), # StatusDB project connection
+                                    fcon=db.FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
+                                    xcon=db.X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
+                    xgen.generate_xml()
+                except Exception as e:
+                    self.LOG.warning("Fetching XML information failed due to '{}'".format(e))
+                logger.info('Generated XML files...')
             # Atleast one sample should have been staged/delivered for the following steps
             if os.path.exists(self.expand_path(self.stagingpath)):
                 # Try to deliver any miscellaneous files for the project (like reports, analysis)
