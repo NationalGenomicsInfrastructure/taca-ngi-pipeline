@@ -103,14 +103,14 @@ class xml_generator(object):
         fcontents += ('LIBRARY_SELECTION\t{}\n').format(exp_details['selection'])
         fcontents += ('LIBRARY_STRATEGY\t{}\n').format(exp_details['strategy'])
         fasta_file_names = list(self.samples_delivered[exp_details['discriptor']].keys())
-        fasta_r1_files = [i.split('/')[-1] for i in fasta_file_names if '_R1_' in i]
-        fasta_r2_files = [i.split('/')[-1] for i in fasta_file_names if '_R2_' in i]
+        fasta_r1_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R1_' in i]
+        fasta_r2_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R2_' in i]
         manifestdirPath = os.path.join(self.outdir, "manifestFiles")
         if not os.path.exists(manifestdirPath):
             os.mkdir(manifestdirPath)
         for f in fasta_r1_files:
             fname = f.split('_R1')[0]
-            fcontents += ('FASTQ\t{}\n').format(f.split('/')[-1])
+            fcontents += ('FASTQ\t{}\n').format(f)
             if exp_details['layout'] == '<PAIRED></PAIRED>':
                 fcontents += ('FASTQ\t{}\n').format(next(s for s in fasta_r2_files if fname in s))
             with open("{}/{}_manifest.txt".format(manifestdirPath, fname), 'w') as manfile:
