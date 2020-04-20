@@ -40,7 +40,7 @@ class xml_generator(object):
         self._stats_from_flowcells()
 
 
-    def generate_xml(self, return_string_dict=False):
+    def generate_xml_and_manifest(self, return_string_dict=False):
         """ Generate experiment/run xml file from the string template """
         experiment_xml_string, run_xml_string = ("", "")
         for sample_stat in self._collect_sample_stats():
@@ -76,6 +76,8 @@ class xml_generator(object):
                                '\t\t\t</FILES>\n'
                                '\t\t</DATA_BLOCK>\n'
                                '\t</RUN>\n').format(**sample_stat['run'])
+            #create manifest files for sample_entry
+            self._generate_manifest_file(sample_stat['experiment'], sample_stat['run'])
         # wrap in final xml string tags
         experiment_set = ('<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                           'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.experiment.xsd">'
@@ -92,6 +94,27 @@ class xml_generator(object):
             exml.write(experiment_set)
             rxml.write(run_set)
 
+    def _generate_manifest_file(self, exp_details, run_details):
+        fcontents =  ('STUDY\t{}\n').format(exp_details['study'])
+        fcontents += ('SAMPLE\t{}\n').format(exp_details['discriptor'])
+        fcontents += ('NAME\t{}\n').format(exp_details['alias'])
+        fcontents += ('INSTRUMENT\t{}\n').format(exp_details['instrument'])
+        fcontents += ('LIBRARY_SOURCE\t{}\n').format(exp_details['source'])
+        fcontents += ('LIBRARY_SELECTION\t{}\n').format(exp_details['selection'])
+        fcontents += ('LIBRARY_STRATEGY\t{}\n').format(exp_details['strategy'])
+        fasta_file_names = list(self.samples_delivered[exp_details['discriptor']].keys())
+        fasta_r1_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R1_' in i]
+        fasta_r2_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R2_' in i]
+        manifestdirPath = os.path.join(self.outdir, "manifestFiles")
+        if not os.path.exists(manifestdirPath):
+            os.mkdir(manifestdirPath)
+        for f in fasta_r1_files:
+            fname = f.split('_R1')[0]
+            fcontents += ('FASTQ\t{}\n').format(f)
+            if exp_details['layout'] == '<PAIRED></PAIRED>':
+                fcontents += ('FASTQ\t{}\n').format(next(s for s in fasta_r2_files if fname in s))
+            with open("{}/{}_manifest.txt".format(manifestdirPath, fname), 'w') as manfile:
+                manfile.write(fcontents)
 
     def _collect_sample_stats(self):
         """ Collect stats that will be used to generate the xml files """
