@@ -236,8 +236,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
             return False
         #now start with the real work
         status = True
-        #otherwise lock the delivery by creating the folder
-        create_folder(hard_stagepath)
 
         # connect to charon, return list of sample objects that have been staged
         try:
@@ -257,6 +255,8 @@ class GrusProjectDeliverer(ProjectDeliverer):
         question = question.format(soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
         if proceed_or_not(question):
             logger.info("Proceeding with delivery of {}".format(str(self), self.sensitive))
+            #lock the delivery by creating the folder
+            create_folder(hard_stagepath)
         else:
             logger.error("Aborting delivery for {}, remove unwanted files and try again".format(str(self)))
             return False
