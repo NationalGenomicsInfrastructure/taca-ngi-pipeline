@@ -289,12 +289,12 @@ class GrusProjectDeliverer(ProjectDeliverer):
                     shutil.copy(src_misc, dst_misc)
                 hard_staged_misc.append(itm)
             except Exception, e:
-                logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, proj, e))
+                logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, self.projectid, e))
                 logger.exception(e)
                 raise e
         if len(misc_to_deliver) != len(hard_staged_misc):
             # Something unexpected happend, terminate
-            logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(proj))
+            logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(self.projectid))
             raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
                                                                                                   len(hard_staged_misc)))
 
