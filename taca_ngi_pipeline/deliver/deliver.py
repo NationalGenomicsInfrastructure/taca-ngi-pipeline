@@ -459,6 +459,10 @@ class ProjectDeliverer(Deliverer):
                 any sample was not properly delivered or ready to be delivered
         """
         try:
+            if getattr(self, 'generate_xml_and_manifest_files_only', False):
+                logger.info("XML and manifest files will be generated for staged files in {}".format(self.projectid))
+                self.generate_xml_and_manifest_files()
+                return True
             if not self.stage_only:
                 logger.info("Delivering {} to {}".format(
                     str(self), self.expand_path(self.deliverypath)))
@@ -478,21 +482,7 @@ class ProjectDeliverer(Deliverer):
                 status = (status and st)
             #If sthlm, generate xml files
             if self.stage_only and getattr(self, 'save_meta_info', False):
-                logger.info("Fetching information for xml generation")
-                with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
-                    db_conf = yaml.safe_load(db_cred_file)['statusdb']
-                try:
-                    xgen = xmlgen.xml_generator(self.projectid, # statusdb project
-                                    outdir=self.expand_path('<ANALYSISPATH>/reports/'),
-                                    ignore_lib_prep=getattr(self, 'xmlgen_ignore_lib_prep', False), # boolean to ignore prep
-                                    LOG=logger, # log object for logging
-                                    pcon=db.ProjectSummaryConnection(db_conf), # StatusDB project connection
-                                    fcon=db.FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
-                                    xcon=db.X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
-                    xgen.generate_xml_and_manifest()
-                except Exception as e:
-                    logger.warning("Fetching XML information failed due to '{}'".format(e))
-                logger.info('Generated XML files...')
+                self.generate_xml_and_manifest_files()
             # Atleast one sample should have been staged/delivered for the following steps
             if os.path.exists(self.expand_path(self.stagingpath)):
                 # Try to deliver any miscellaneous files for the project (like reports, analysis)
@@ -529,6 +519,23 @@ class ProjectDeliverer(Deliverer):
             return status
         except (db.DatabaseError, DelivererInterruptedError, Exception):
             raise
+
+    def generate_xml_and_manifest_files(self):
+        logger.info("Fetching information for xml generation")
+        with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
+            db_conf = yaml.safe_load(db_cred_file)['statusdb']
+        try:
+            xgen = xmlgen.xml_generator(self.projectid, # statusdb project
+                            outdir=self.expand_path('<ANALYSISPATH>/reports/'),
+                            ignore_lib_prep=getattr(self, 'xmlgen_ignore_lib_prep', False), # boolean to ignore prep
+                            LOG=logger, # log object for logging
+                            pcon=db.ProjectSummaryConnection(db_conf), # StatusDB project connection
+                            fcon=db.FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
+                            xcon=db.X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
+            xgen.generate_xml_and_manifest()
+        except Exception as e:
+            logger.warning("Fetching XML information failed due to '{}'".format(e))
+        logger.info('Generated XML files...')
 
     def update_delivery_status(self, status="DELIVERED"):
         """ Update the delivery_status field in the database to the supplied
