@@ -38,9 +38,11 @@ logger = logging.getLogger(__name__)
               help="Force delivery, even if e.g. analysis has not finished or sample has already been delivered")
 @click.option('--cluster', default="milou",  type=click.Choice(['milou', 'mosler', 'bianca', 'grus']),
               help="Specify to which cluster one wants to deliver")
+@click.option('--generate_xml_and_manifest_files_only', is_flag=True,  default=False,
+              help="Explicitly generate xml amd manifest files for ENA submission on a staged project")
 
 
-def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, force, cluster, ignore_analysis_status):
+def deliver(ctx, deliverypath, stagingpath, uppnexid, operator, stage_only, force, cluster, ignore_analysis_status, generate_xml_and_manifest_files_only):
     """ Deliver methods entry point
     """
     if deliverypath is None:
