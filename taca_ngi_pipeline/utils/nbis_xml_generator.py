@@ -103,8 +103,8 @@ class xml_generator(object):
         fcontents += ('LIBRARY_SELECTION\t{}\n').format(exp_details['selection'])
         fcontents += ('LIBRARY_STRATEGY\t{}\n').format(exp_details['strategy'])
         fasta_file_names = list(self.samples_delivered[exp_details['discriptor']].keys())
-        fasta_r1_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R1_' in i]
-        fasta_r2_files = ['-'.join(i.split('/')[-2:]) for i in fasta_file_names if '_R2_' in i]
+        fasta_r1_files = [ i for i in fasta_file_names if '_R1_' in i]
+        fasta_r2_files = [ i for i in fasta_file_names if '_R2_' in i]
         manifestdirPath = os.path.join(self.outdir, "manifestFiles")
         if not os.path.exists(manifestdirPath):
             os.mkdir(manifestdirPath)
@@ -147,7 +147,7 @@ class xml_generator(object):
         self.sample_aggregated_stat = defaultdict(dict)
         # try to get instrument type and samples sequenced
         for fc, fc_info in self.flowcells.iteritems():
-            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'])
+            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'], log=self.LOG)
             if not fc_obj:
                 self.LOG.warn("Could not fetch flowcell {} from {} db, will remove it from list".format(fc_info['run_name'], fc_info['db']))
                 continue
@@ -213,7 +213,8 @@ class xml_generator(object):
         self.project_design['design'] = design_template + "{instrument}"
         self.project_design['protocol'] = dp_protocol
         # try setting strategy based on application type
-        if not proj_app or proj_app.lower() == "metagenomics":
+        dp_strategy = 'OTHER'
+        if proj_app.lower() == "metagenomics":
             dp_strategy = "OTHER"
         elif proj_app.lower() == "rna-seq":
             dp_strategy = "miRNA-Seq" if self.project.get("details", {}).get("bioinformatic_qc", "").lower() == "mirna-seq" else "RNA-Seq"
@@ -278,7 +279,7 @@ class xml_generator(object):
         """ Get the project document from couchDB if it is not """
         if isinstance(project, basestring):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
-            project = self.pcon.get_entry(project, use_id_view=True)
+            project = self.pcon.get_entry(project, use_id_view=True, log=self.LOG)
         self.project = project
 
 
