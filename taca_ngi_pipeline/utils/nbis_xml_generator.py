@@ -194,6 +194,7 @@ class xml_generator(object):
         """ Get project library design and protocol details """
         # This function is not particularly clever, but this is the best
         # I was able to do with avilable stuff at the time of writing
+        #refactor with a mapping file probably
         self.project_design = {}
         # get application type of project
         proj_app = self.project.get("details", {}).get("application")
