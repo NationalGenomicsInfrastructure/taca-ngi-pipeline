@@ -5,6 +5,6 @@ taca>=0.1.9
 ngi_pipeline
 paramiko
 python-dateutil
-pyexcel
+pyexcel==0.5.15
 openpyxl==2.6.1
 future

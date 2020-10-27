@@ -93,7 +93,7 @@ class statusdb_session(object):
         if db:
             self.db_connection = self.connection[db]
 
-    def get_entry(self, name, use_id_view=False):
+    def get_entry(self, name, use_id_view=False, log=None):
         """Retrieve entry from given db for a given name.
 
         :param name: unique name identifier (primary key, not the uuid)
@@ -104,8 +104,8 @@ class statusdb_session(object):
         else:
             view = self.name_view
         if not view.get(name, None):
-            if self.log:
-                self.log.warn("no entry '{}' in {}".format(name, self.db))
+            if log:
+                log.warn("no entry '{}' in {}".format(name, self.db))
             return None
         return self.db.get(view.get(name))
 

@@ -9,7 +9,8 @@ before_install:
     - mkdir /home/travis/.ngipipeline
     - "echo foo: bar > /home/travis/.ngipipeline/ngi_config.yaml"
     - pip install setuptools --upgrade
-    - pip install pyexcel
+    - pip install pyexcel==0.5.15
+    - pip install pyexcel-xlsx==0.5.8
     - pip install traitlets==4.3.3
 install:
     - python setup.py install
