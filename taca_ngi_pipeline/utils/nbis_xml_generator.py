@@ -113,7 +113,7 @@ class xml_generator(object):
             fcontents += ('FASTQ\t{}\n').format(f)
             if exp_details['layout'] == '<PAIRED></PAIRED>':
                 fcontents += ('FASTQ\t{}\n').format(next(s for s in fasta_r2_files if fname in s))
-            with open("{}/{}_manifest.txt".format(manifestdirPath, fname), 'w') as manfile:
+            with open("{}/{}_manifest.txt".format(manifestdirPath, fname.replace('/', '.')), 'w') as manfile:
                 manfile.write(fcontents)
 
     def _collect_sample_stats(self):
