@@ -1,2 +1,2 @@
 https://github.com/NationalGenomicsInfrastructure/ngi_pipeline/archive/master.zip#egg=ngi_pipeline
-https://github.com/SciLifeLab/statusdb/archive/master.zip#egg=statusdb
+http://github.com/SciLifeLab/TACA/tarball/master#egg=taca

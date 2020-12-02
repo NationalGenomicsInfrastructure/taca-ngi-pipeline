@@ -11,12 +11,17 @@ before_install:
     - pip install setuptools --upgrade
     - pip install pyexcel==0.5.15
     - pip install pyexcel-xlsx==0.5.8
-    - pip install traitlets==4.3.3
+    - pip install git+https://github.com/SciLifeLab/TACA.git@master
+    - pip install codecov
+
 install:
     - python setup.py install
 
 script:
-    - cd tests && nosetests -v -s
+    - cd tests && nosetests --with-coverage -v -s
+
+after_success:
+    - codecov
 
 notifications:
     email: false

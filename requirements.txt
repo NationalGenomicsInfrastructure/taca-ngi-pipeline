@@ -1,7 +1,8 @@
-click
+click==7.1.2
+traitlets==4.3.3
+bcrypt==3.1.7
 requests
 pyyaml
-taca>=0.1.9
 ngi_pipeline
 paramiko
 python-dateutil
