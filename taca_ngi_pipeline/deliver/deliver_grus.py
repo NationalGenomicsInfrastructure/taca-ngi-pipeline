@@ -17,8 +17,8 @@ from dateutil.relativedelta import relativedelta
 from ngi_pipeline.database.classes import CharonSession
 from taca.utils.filesystem import do_copy, create_folder
 from taca.utils.config import CONFIG
+from taca.utils.statusdb import StatusdbSession, ProjectSummaryConnection
 
-from ..utils.database import statusdb_session, ProjectSummaryConnection
 from deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
 
 logger = logging.getLogger(__name__)
@@ -413,10 +413,10 @@ class GrusProjectDeliverer(ProjectDeliverer):
         if not save_meta_info:
             return
         status_db = ProjectSummaryConnection(self.config_statusdb)
-        project_page=status_db.get_entry(self.projectid, use_id_view=True)
-        dprojs=[]
+        project_page = status_db.get_entry(self.projectid, use_id_view=True)
+        dprojs = []
         if 'delivery_projects' in project_page:
-            dprojs=project_page['delivery_projects']
+            dprojs = project_page['delivery_projects']
 
         dprojs.append(supr_name_of_delivery)
 
@@ -569,7 +569,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         return matches[0].get("id")
 
     def _get_order_detail(self):
-        status_db = statusdb_session(self.config_statusdb)
+        status_db = StatusdbSession(self.config_statusdb)
         projects_db = status_db.connection['projects']
         view = projects_db.view('order_portal/ProjectID_to_PortalID')
         rows = view[self.projectid].rows

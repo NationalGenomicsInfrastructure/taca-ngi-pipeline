@@ -14,6 +14,7 @@ import yaml
 from taca.utils.config import CONFIG
 from taca.utils.filesystem import create_folder, chdir
 from taca.utils.misc import call_external_command
+from taca.utils.statusdb import ProjectSummaryConnection, FlowcellRunMetricsConnection, X_FlowcellRunMetricsConnection
 from taca.utils import transfer
 from ..utils import database as db
 from ..utils import filesystem as fs
@@ -332,7 +333,7 @@ class Deliverer(object):
         try:
             with open(os.getenv('STATUS_DB_CONFIG'), 'r') as db_cred_file:
                 db_conf = yaml.safe_load(db_cred_file)['statusdb']
-            sdb = db.ProjectSummaryConnection(db_conf)
+            sdb = ProjectSummaryConnection(db_conf)
             proj_obj = sdb.get_entry(self.projectname)
             meta_info_dict = proj_obj.get("staged_files", {})
             staging_path = self.expand_path(self.stagingpath)
@@ -525,9 +526,9 @@ class ProjectDeliverer(Deliverer):
                             outdir=self.expand_path('<ANALYSISPATH>/reports/'),
                             ignore_lib_prep=getattr(self, 'xmlgen_ignore_lib_prep', False), # boolean to ignore prep
                             LOG=logger, # log object for logging
-                            pcon=db.ProjectSummaryConnection(db_conf), # StatusDB project connection
-                            fcon=db.FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
-                            xcon=db.X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
+                            pcon=ProjectSummaryConnection(db_conf), # StatusDB project connection
+                            fcon=FlowcellRunMetricsConnection(db_conf), # StatusDB flowcells connection
+                            xcon=X_FlowcellRunMetricsConnection(db_conf)) # StatusDB xflowcells connection
             xgen.generate_xml_and_manifest()
         except Exception as e:
             logger.warning("Fetching XML information failed due to '{}'".format(e))
