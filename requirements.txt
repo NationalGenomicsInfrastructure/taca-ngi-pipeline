@@ -4,7 +4,6 @@ bcrypt==3.1.7
 requests
 pyyaml
 ngi_pipeline
-paramiko
 python-dateutil
 pyexcel==0.5.15
 openpyxl==2.6.1
