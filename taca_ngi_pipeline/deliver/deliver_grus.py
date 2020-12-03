@@ -19,13 +19,15 @@ from taca.utils.filesystem import do_copy, create_folder
 from taca.utils.config import CONFIG
 from taca.utils.statusdb import StatusdbSession, ProjectSummaryConnection
 
-from deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
+from .deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
+from ..utils.database import DatabaseError
 
 logger = logging.getLogger(__name__)
 
-yes = set(['yes','y', 'ye'])
-no = set(['no','n'])
+
 def proceed_or_not(question):
+    yes = set(['yes', 'y', 'ye'])
+    no = set(['no', 'n'])
     sys.stdout.write("{}".format(question))
     while True:
         choice = raw_input().lower()
@@ -168,7 +170,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                     sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.update_delivery_status(status=delivery_status)
                 except Exception, e:
-                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, error))
+                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
                     logger.exception(e)
             #now reset delivery
             self.delete_delivery_token_in_charon()
@@ -182,7 +184,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                     if sample_deliverer.get_delivery_status() != 'DELIVERED':
                         all_samples_delivered = False
                 except Exception, e:
-                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, error))
+                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
                     logger.exception(e)
             if all_samples_delivered:
                 self.update_delivery_status(status=delivery_status)
@@ -249,7 +251,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         question = "\nProject stagepath: {}\nSamples: {}\nMiscellaneous: {}\n\nProceed with delivery ? "
         question = question.format(soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
         if proceed_or_not(question):
-            logger.info("Proceeding with delivery of {}".format(str(self), self.sensitive))
+            logger.info("Proceeding with delivery of {}".format(str(self)))
             #lock the delivery by creating the folder
             create_folder(hard_stagepath)
         else:
@@ -300,7 +302,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             supr_name_of_delivery = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
         except Exception, e:
-            logger.error('Cannot create delivery project. Error says: {}'.format())
+            logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
         delivery_token = self.do_delivery(supr_name_of_delivery) # instead of to_outbox
         #at this point I have delivery_token and supr_name_of_delivery so I need to update the project fields and the samples fields
@@ -360,7 +362,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             delivery_id = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, delivery_id))
         except Exception, e:
-            logger.error('Cannot create delivery project. Error says: {}'.format())
+            logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
 
         #invoke mover
@@ -425,7 +427,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             status_db.save_db_doc(project_page)
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, supr_name_of_delivery))
         except Exception, e:
-            logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(projectid, e))
+            logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
     def do_delivery(self, supr_name_of_delivery):
@@ -629,7 +631,7 @@ class GrusSampleDeliverer(SampleDeliverer):
                 if self.get_delivery_status(sampleentry) != 'STAGED':
                     logger.info("{} has not been staged and will not be delivered".format(str(self)))
                     return False
-            except db.DatabaseError as e:
+            except DatabaseError as e:
                 logger.error("error '{}' occurred during delivery of {}".format(str(e), str(self)))
                 logger.exception(e)
                 raise(e)

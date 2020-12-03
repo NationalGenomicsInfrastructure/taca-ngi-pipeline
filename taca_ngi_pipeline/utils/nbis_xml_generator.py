@@ -4,6 +4,7 @@ import argparse
 import couchdb
 import os
 import re
+import logging
 
 from collections import defaultdict
 from past.builtins import basestring
@@ -16,7 +17,7 @@ class xml_generator(object):
     """
     def __init__(self, project, outdir=os.getcwd(), ignore_lib_prep=False, flowcells=None, LOG=None, pcon=None, fcon=None, xcon=None):
         """ Instantiate required objtects"""
-        self.LOG = LOG or loggers.minimal_logger('nbis_xml_generator')
+        self.LOG = LOG
         try:
             self.pcon = pcon
             assert self.pcon, "Could not connect to {} database in StatusDB".format("project")
@@ -240,7 +241,7 @@ class xml_generator(object):
         elif seq_setup.startswith("2x"):
             dp_layout = "<PAIRED></PAIRED>"
         else:
-            self.LOG.warn("Was not able to fetch sequencing setup from couchdb for project {}, so choosing PAIRED".format())
+            self.LOG.warn("Was not able to fetch sequencing setup from couchdb for project {}, so choosing PAIRED".format(self.project['project_id']))
             dp_layout = "<PAIRED></PAIRED>"
         self.project_design['layout'] = dp_layout
         # set library selection depending upon setup
@@ -321,8 +322,8 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", type=str, default=os.getcwd(), help="Output directory where the XML files will be saved")
     parser.add_argument("--ignore-lib-prep", default=False, action="store_true", help="Dont take in account the lib preps")
     kwargs = vars(parser.parse_args())
-    LOG = loggers.minimal_logger('nbis_xml_generator')
+    LOG = logging.getLogger('nbis_xml_generator')
     LOG.info("Generating xml files for project {}".format(kwargs['project']))
     xgen = xml_generator(kwargs['project'], LOG=LOG, outdir=kwargs['outdir'], ignore_lib_prep=kwargs['ignore_lib_prep'])
-    xgen.generate_xml()
+    xgen.generate_xml_and_manifest()
     LOG.info("Generated xml files for project {}".format(kwargs['project']))
