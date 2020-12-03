@@ -6,7 +6,6 @@ import os
 import re
 
 from collections import defaultdict
-import database as db
 from past.builtins import basestring
 
 

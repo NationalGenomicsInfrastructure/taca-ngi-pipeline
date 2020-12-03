@@ -2,17 +2,11 @@
 """
 import click
 import logging
-import os
-import subprocess
 
-from ngi_pipeline.database.classes import CharonSession
-from taca.utils.config import CONFIG
-
-import taca.utils.misc
+from taca.utils.misc import send_mail
+from taca.utils.config import load_yaml_config
 from deliver import deliver as _deliver
 from deliver import deliver_grus as _deliver_grus
-
-from deliver.deliver_grus import GrusProjectDeliverer
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +102,15 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             if statusdb_config == None:
                 logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(statusdb_config.name)
+            load_yaml_config(statusdb_config.name)
             if snic_api_credentials == None:
                 logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(snic_api_credentials.name)
+            load_yaml_config(snic_api_credentials.name)
             if order_portal == None:
                 logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
                 return 1
-            taca.utils.config.load_yaml_config(order_portal.name)
+            load_yaml_config(order_portal.name)
             d = _deliver_grus.GrusProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
@@ -163,7 +157,7 @@ def _exec_fn(obj, fn):
     except Exception as e:
         logger.exception(e)
         try:
-            taca.utils.misc.send_mail(
+            send_mail(
                 subject="[ERROR] processing failed: {}".format(str(obj)),
                 content="Project: {}\nSample: {}\nCommand: {}\n\nAdditional information:{}\n".format(
                     obj.projectid, obj.sampleid, str(fn), str(e)),
@@ -199,11 +193,11 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
         if statusdb_config == None:
             logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
             return 1
-        taca.utils.config.load_yaml_config(statusdb_config.name)
+        load_yaml_config(statusdb_config.name)
         if snic_api_credentials == None:
             logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
             return 1
-        taca.utils.config.load_yaml_config(snic_api_credentials.name)
+        load_yaml_config(snic_api_credentials.name)
 
         d = _deliver_grus.GrusProjectDeliverer(
                 pid,

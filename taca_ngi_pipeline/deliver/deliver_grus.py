@@ -1,25 +1,20 @@
 """
     Module for controlling deliveries os samples and projects to GRUS
 """
-import paramiko
-import getpass
 import glob
 import time
-import stat
 import requests
 import datetime
-from dateutil.relativedelta import relativedelta
 import os
 import logging
-import couchdb
 import json
 import subprocess
-from dateutil import parser
 import sys
 import re
 import shutil
+from dateutil.relativedelta import relativedelta
 
-from ngi_pipeline.database.classes import CharonSession, CharonError
+from ngi_pipeline.database.classes import CharonSession
 from taca.utils.filesystem import do_copy, create_folder
 from taca.utils.config import CONFIG
 
@@ -392,16 +387,6 @@ class GrusProjectDeliverer(ProjectDeliverer):
         '''
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token='NO-TOKEN')
-
-    def get_delivery_token_in_charon(self):
-        '''fetches delivery_token from Charon
-        '''
-        charon_session = CharonSession()
-        project_charon = charon_session.project_get(self.projectid)
-        if project_charon.get('delivery_token'):
-            return project_charon.get('delivery_token')
-        else:
-            return 'NO-TOKEN'
 
     def add_supr_name_delivery_in_charon(self, supr_name_of_delivery):
         '''Updates delivery_projects in Charon at project level

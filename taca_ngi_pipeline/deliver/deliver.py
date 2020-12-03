@@ -30,10 +30,6 @@ class DelivererInterruptedError(DelivererError):
     pass
 
 
-class DelivererReplaceError(DelivererError):
-    pass
-
-
 class DelivererRsyncError(DelivererError):
     pass
 
