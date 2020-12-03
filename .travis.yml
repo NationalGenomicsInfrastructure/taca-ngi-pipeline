@@ -11,6 +11,7 @@ before_install:
     - pip install setuptools --upgrade
     - pip install pyexcel==0.5.15
     - pip install pyexcel-xlsx==0.5.8
+    - pip install git+https://github.com/SciLifeLab/flowcell_parser.git@master
     - pip install git+https://github.com/SciLifeLab/TACA.git@master
     - pip install codecov
 
