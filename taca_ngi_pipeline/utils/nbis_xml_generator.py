@@ -147,7 +147,7 @@ class xml_generator(object):
         self.sample_aggregated_stat = defaultdict(dict)
         # try to get instrument type and samples sequenced
         for fc, fc_info in self.flowcells.iteritems():
-            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'], log=self.LOG)
+            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'])
             if not fc_obj:
                 self.LOG.warn("Could not fetch flowcell {} from {} db, will remove it from list".format(fc_info['run_name'], fc_info['db']))
                 continue
@@ -280,7 +280,7 @@ class xml_generator(object):
         """ Get the project document from couchDB if it is not """
         if isinstance(project, basestring):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
-            project = self.pcon.get_entry(project, use_id_view=True, log=self.LOG)
+            project = self.pcon.get_entry(project, use_id_view=True)
         self.project = project
 
 
