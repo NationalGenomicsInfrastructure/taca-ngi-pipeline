@@ -1,7 +1,42 @@
 import unittest
+import shutil
+import tempfile
 from mock import patch
 
 from taca_ngi_pipeline.deliver.deliver_grus import GrusProjectDeliverer, GrusSampleDeliverer, proceed_or_not, check_mover_version
+
+SAMPLECFG = {
+    'deliver': {
+        'analysispath': '<ROOTDIR>/ANALYSIS',
+        'datapath': '<ROOTDIR>/DATA',
+        'stagingpath': '<ROOTDIR>/STAGING',
+        'stagingpathhard': '<ROOTDIR>/STAGING_HARD',
+        'deliverypath': '<ROOTDIR>/DELIVERY_DESTINATION',
+        'operator': 'operator@domain.com',
+        'logpath': '<ROOTDIR>/ANALYSIS/logs',
+        'reportpath': '<ANALYSISPATH>',
+        'copy_reports_to_reports_outbox': 'True',
+        'reports_outbox': '/test/this/path',
+        'deliverystatuspath': '<ANALYSISPATH>',
+        'report_aggregate': 'ngi_reports ign_aggregate_report -n uppsala',
+        'report_sample': 'ngi_reports ign_sample_report -n uppsala',
+        'hash_algorithm': 'md5',
+        'files_to_deliver': [
+            ['<ANALYSISPATH>/level0_folder?_file*',
+             '<STAGINGPATH>']]
+        },
+    'snic': {
+        'snic_api_url': 'url', 
+        'snic_api_user': 'usr', 
+        'snic_api_password': 'pwd'
+        },
+    'statusdb': {
+        'url': 'sdb_url',
+        'username': 'sdb_usr',
+        'password': 'sdb_pwd',
+        'port': 'sdb_port'
+        }
+    }
 
 class TestMisc(unittest.TestCase):
     
@@ -30,8 +65,39 @@ class TestMisc(unittest.TestCase):
     
 class TestGrusProjectDeliverer(unittest.TestCase):
     
+    @classmethod
+    @patch.dict('taca_ngi_pipeline.deliver.deliver_grus.CONFIG', SAMPLECFG)
+    def setUpClass(self):
+        db_entry = {'name': 'S.One_20_01',
+                    'uppnex_id': 'a2099999'}
+        with patch('taca_ngi_pipeline.utils.database.project_entry', 
+                   return_value=db_entry) as dbmock:
+            self.tmp_dir = tempfile.mkdtemp()
+            self.pid = 'P12345'
+            self.deliverer = GrusProjectDeliverer(projectid=self.pid,
+                                                  **SAMPLECFG['deliver'])
+    
+    @classmethod
+    def tearDownClass(self):
+        shutil.rmtree(self.tmp_dir)
+    
     def test_get_delivery_status(self):
-        pass
+        dbentry_in_progress = {'delivery_token': 'token'}
+        got_status_in_progress = self.deliverer.get_delivery_status(dbentry=dbentry_in_progress)
+        self.assertEqual(got_status_in_progress, 'IN_PROGRESS')
+        
+        dbentry_delivered = {'delivery_token': 'NO-TOKEN',
+                             'delivery_status': 'DELIVERED'}
+        got_status_delivered = self.deliverer.get_delivery_status(dbentry=dbentry_delivered)
+        self.assertEqual(got_status_delivered, 'DELIVERED')
+        
+        dbentry_partial = {'delivery_projects': 'delivery0123'}
+        got_status_partial = self.deliverer.get_delivery_status(dbentry=dbentry_partial)
+        self.assertEqual(got_status_partial, 'PARTIAL')
+        
+        dbentry_not_delivered = {'delivery_token': 'not_under_delivery'}
+        got_status_not_delivered = self.deliverer.get_delivery_status(dbentry=dbentry_not_delivered)
+        self.assertEqual(got_status_not_delivered, 'NOT_DELIVERED')
     
     def test_check_mover_delivery_status(self):
         pass

@@ -54,7 +54,10 @@ def check_mover_version():
 class GrusProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples to castor's wharf.
     """
-    def __init__(self, projectid=None, sampleid=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fcid=None, **kwargs):
+    def __init__(self, projectid=None, sampleid=None, 
+                 pi_email=None, sensitive=True, 
+                 hard_stage_only=False, add_user=None, 
+                 fcid=None, **kwargs):
         super(GrusProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -63,13 +66,13 @@ class GrusProjectDeliverer(ProjectDeliverer):
         self.stagingpathhard = getattr(self, 'stagingpathhard', None)
         if self.stagingpathhard is None:
             raise AttributeError("stagingpathhard is required when delivering to GRUS")
-        self.config_snic = CONFIG.get('snic',None)
+        self.config_snic = CONFIG.get('snic', None)
         if self.config_snic is None:
             raise AttributeError("snic confoguration is needed  delivering to GRUS (snic_api_url, snic_api_user, snic_api_password")
-        self.config_statusdb = CONFIG.get('statusdb',None)
+        self.config_statusdb = CONFIG.get('statusdb', None)
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
-        self.orderportal = CONFIG.get('order_portal',None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
+        self.orderportal = CONFIG.get('order_portal', None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
         if self.orderportal:
             self._set_pi_details(pi_email) # set PI email and SNIC id
             self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
