@@ -199,7 +199,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         """
         #first thing check that we are using mover 1.0.0
         if not check_mover_version():
-             logger.error("Not delivering becouse wrong mover version detected")
+             logger.error("Not delivering because wrong mover version detected")
              return False
         # moved this part from constructor, as we can create an object without running the delivery (e.g. to check_delivery_status)
         #check if the project directory already exists, if so abort
@@ -452,7 +452,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             return "manually-set-up"
 
         try:
-            output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             logger.error('to_outbox failed while delivering {} to {}'.format(hard_stage, supr_name_of_delivery))
             logger.exception(e)
