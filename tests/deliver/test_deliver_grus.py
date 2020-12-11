@@ -291,14 +291,46 @@ class TestGrusProjectDeliverer(unittest.TestCase):
 
 class TestGrusSampleDeliverer(unittest.TestCase):
 
-    def test_deliver_sample(self):
-        pass
+    @classmethod
+    def setUpClass(self):
+        db_entry = {'name': 'S.One_20_01',
+                    'uppnex_id': 'a2099999',
+                    'delivery_token': 'atoken'}
+        with patch('taca_ngi_pipeline.utils.database.project_entry', 
+                   return_value=db_entry) as dbmock:
+            self.tmp_dir = tempfile.mkdtemp()
+            self.pid = 'P12345'
+            self.sid = 'P12345_1001'
+            self.deliverer = GrusSampleDeliverer(projectid=self.pid,
+                                                 sampleid=self.sid,
+                                                  **SAMPLECFG['deliver'])
+            self.deliverer.rootdir = self.tmp_dir
+    
+    @classmethod
+    def tearDownClass(self):
+        shutil.rmtree(self.tmp_dir)
 
-    def test_save_delivery_token_in_charon(self):
-        pass
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusSampleDeliverer.get_delivery_status')
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusSampleDeliverer.update_delivery_status')
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusSampleDeliverer.do_delivery')
+    def test_deliver_sample(self, mock_deliver, mock_update, mock_status):
+        mock_status.return_value = 'STAGED'
+        self.deliverer.deliver_sample()
+        mock_update.assert_called_once_with(status='IN_PROGRESS')
 
-    def test_add_supr_name_delivery_in_charon(self):
-        pass
-
-    def test_do_delivery(self):
-        pass
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.CharonSession')
+    def test_add_supr_name_delivery_in_charon(self, mock_charon):
+        mock_charon().sample_get.return_value = {'delivery_projects': ['delivery123']}
+        self.deliverer.add_supr_name_delivery_in_charon('delivery456')
+        mock_charon().sample_update.assert_called_once_with(self.pid,
+                                                            self.sid,
+                                                             delivery_projects=['delivery123', 
+                                                                                'delivery456'])
+    
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.shutil.copy')
+    def test_do_delivery(self, mock_copy):
+        os.makedirs(os.path.join(self.tmp_dir, 'STAGING', self.sid))
+        open(os.path.join(self.tmp_dir, 'STAGING', 'P12345_1001.txt'), 'w').close()
+        self.deliverer.do_delivery()
+        mock_copy.assert_called_once_with(os.path.join(self.tmp_dir, 'STAGING', 'P12345_1001.txt'),
+                                          os.path.join(self.tmp_dir, 'STAGING_HARD'))
