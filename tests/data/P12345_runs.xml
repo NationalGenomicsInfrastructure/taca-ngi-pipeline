@@ -1,0 +1,11 @@
+<RUN_SET  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.run.xsd">
+	<RUN alias="P12345_1001_A_illumina_miseq_runs" run_center="National Genomics Infrastructure, Stockholm" center_name="">
+		<EXPERIMENT_REF refname="P12345_1001_A_illumina_miseq_experiment"/>
+		<DATA_BLOCK>
+			<FILES>
+				<FILE filename="file1.fastq.gz" filetype="fastq" checksum_method="MD5" checksum="sum" />
+			</FILES>
+		</DATA_BLOCK>
+	</RUN>
+
+</RUN_SET>

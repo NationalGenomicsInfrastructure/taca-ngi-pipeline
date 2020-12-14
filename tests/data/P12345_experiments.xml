@@ -1,0 +1,25 @@
+<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.experiment.xsd">
+	<EXPERIMENT alias="P12345_1001_A_illumina_miseq_experiment" center_name="">
+		<TITLE>Prep for P12345_1001 sequenced in Illumina MiSeq</TITLE>
+		<STUDY_REF refname="P12345"/>
+		<DESIGN>
+			<DESIGN_DESCRIPTION> Sample library for sequencing on Illumina MiSeq </DESIGN_DESCRIPTION>
+			<SAMPLE_DESCRIPTOR refname="P12345_1001"/>
+			<LIBRARY_DESCRIPTOR>
+				<LIBRARY_NAME>P12345_1001_prep_lib</LIBRARY_NAME>
+				<LIBRARY_STRATEGY>OTHER</LIBRARY_STRATEGY>
+				<LIBRARY_SOURCE>METAGENOMIC</LIBRARY_SOURCE>
+				<LIBRARY_SELECTION>unspecified</LIBRARY_SELECTION>
+				<LIBRARY_LAYOUT><PAIRED></PAIRED></LIBRARY_LAYOUT>
+				<LIBRARY_CONSTRUCTION_PROTOCOL>NA</LIBRARY_CONSTRUCTION_PROTOCOL>
+			</LIBRARY_DESCRIPTOR>
+		</DESIGN>
+		<PLATFORM>
+			<ILLUMINA>
+				<INSTRUMENT_MODEL>Illumina MiSeq</INSTRUMENT_MODEL>
+			</ILLUMINA>
+		</PLATFORM>
+		<PROCESSING/>
+	</EXPERIMENT>
+
+</EXPERIMENT_SET>

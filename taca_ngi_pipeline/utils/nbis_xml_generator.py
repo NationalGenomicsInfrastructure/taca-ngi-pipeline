@@ -4,9 +4,9 @@ import argparse
 import couchdb
 import os
 import re
+import logging
 
 from collections import defaultdict
-import database as db
 from past.builtins import basestring
 
 
@@ -17,7 +17,7 @@ class xml_generator(object):
     """
     def __init__(self, project, outdir=os.getcwd(), ignore_lib_prep=False, flowcells=None, LOG=None, pcon=None, fcon=None, xcon=None):
         """ Instantiate required objtects"""
-        self.LOG = LOG or loggers.minimal_logger('nbis_xml_generator')
+        self.LOG = LOG
         try:
             self.pcon = pcon
             assert self.pcon, "Could not connect to {} database in StatusDB".format("project")
@@ -147,7 +147,7 @@ class xml_generator(object):
         self.sample_aggregated_stat = defaultdict(dict)
         # try to get instrument type and samples sequenced
         for fc, fc_info in self.flowcells.iteritems():
-            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'], log=self.LOG)
+            fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'])
             if not fc_obj:
                 self.LOG.warn("Could not fetch flowcell {} from {} db, will remove it from list".format(fc_info['run_name'], fc_info['db']))
                 continue
@@ -241,7 +241,7 @@ class xml_generator(object):
         elif seq_setup.startswith("2x"):
             dp_layout = "<PAIRED></PAIRED>"
         else:
-            self.LOG.warn("Was not able to fetch sequencing setup from couchdb for project {}, so choosing PAIRED".format())
+            self.LOG.warn("Was not able to fetch sequencing setup from couchdb for project {}, so choosing PAIRED".format(self.project['project_id']))
             dp_layout = "<PAIRED></PAIRED>"
         self.project_design['layout'] = dp_layout
         # set library selection depending upon setup
@@ -280,7 +280,7 @@ class xml_generator(object):
         """ Get the project document from couchDB if it is not """
         if isinstance(project, basestring):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
-            project = self.pcon.get_entry(project, use_id_view=True, log=self.LOG)
+            project = self.pcon.get_entry(project, use_id_view=True)
         self.project = project
 
 
@@ -322,8 +322,8 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", type=str, default=os.getcwd(), help="Output directory where the XML files will be saved")
     parser.add_argument("--ignore-lib-prep", default=False, action="store_true", help="Dont take in account the lib preps")
     kwargs = vars(parser.parse_args())
-    LOG = loggers.minimal_logger('nbis_xml_generator')
+    LOG = logging.getLogger('nbis_xml_generator')
     LOG.info("Generating xml files for project {}".format(kwargs['project']))
     xgen = xml_generator(kwargs['project'], LOG=LOG, outdir=kwargs['outdir'], ignore_lib_prep=kwargs['ignore_lib_prep'])
-    xgen.generate_xml()
+    xgen.generate_xml_and_manifest()
     LOG.info("Generated xml files for project {}".format(kwargs['project']))
