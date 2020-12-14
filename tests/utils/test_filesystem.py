@@ -20,12 +20,12 @@ class TestFilesystem(unittest.TestCase):
         hashfile = 'data/deliver_testset.tar.gz.md5'
         got_dict = filesystem.parse_hash_file(hashfile, '2020-12-07', root_path='data')
         expected_dict = {'deliver_testset.tar':
-            {'deliver_testset.tar.gz':
-                {'size_in_bytes': 52639,
-                 'md5_sum': '640ec90a89e9d8aaca6d5364e4139375',
-                 'last_modified': '2020-12-07'}
-                }
-            }
+                            {'deliver_testset.tar.gz':
+                                {'size_in_bytes': 52639,
+                                 'md5_sum': '640ec90a89e9d8aaca6d5364e4139375',
+                                 'last_modified': '2020-12-07'}
+                                }
+                            }
         self.assertEqual(got_dict, expected_dict)
     
     def test_merge_dicts(self):

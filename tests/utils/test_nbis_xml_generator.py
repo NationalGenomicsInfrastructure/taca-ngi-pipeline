@@ -90,13 +90,13 @@ class TestXmlGen(unittest.TestCase):
     
     def test__generate_manifest_file(self):
         experiment_details = {'study': 'P12345',
-                       'discriptor': 'P12345_1001',
-                       'alias': 'alias',
-                       'instrument': 'inst',
-                       'source': 'src',
-                       'selection': 'sel',
-                       'strategy': 'strat',
-                       'layout': '<PAIRED></PAIRED>'}
+                              'discriptor': 'P12345_1001',
+                              'alias': 'alias',
+                              'instrument': 'inst',
+                              'source': 'src',
+                              'selection': 'sel',
+                              'strategy': 'strat',
+                              'layout': '<PAIRED></PAIRED>'}
         self.xgen._generate_manifest_file(experiment_details, 'run_details')
         got_manifest_path = os.path.join(self.outdir, 'manifestFiles', 'P12345_1001_manifest.txt')
         self.assertTrue(filecmp.cmp(got_manifest_path,'data/P12345_1001_manifest.txt'))
