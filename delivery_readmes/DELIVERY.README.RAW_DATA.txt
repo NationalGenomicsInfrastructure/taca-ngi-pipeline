@@ -36,16 +36,16 @@ ProjectID -> 00-Reports
 The 00-Report folder contains reports with sequencing information about the runs, about the lanes, libraries, and samples. It also contains a MultiQC report.
 
 
-|--ProjectID/
-   |--00-Reports/
-    --ProjectName_lanes_info.txt
-    --ProjectName_library_info.txt
-    --ProjectName_multiqc_report.html
-    --ProjectName_project_summary.html
-    --ProjectName_project_summary.md
-    --ProjectName_sample_info.txt
-    |--manifestFiles/
-           --<NGI_ID>.02-FASTQ.<flowcell>.<NGI_ID>_<flowcell-mode>_<lane-number>_manifest.txt
+── ProjectID
+   ├── 00-Reports/
+           ├── ProjectName_lanes_info.txt
+           ├── ProjectName_library_info.txt
+           ├── ProjectName_multiqc_report.html
+           ├── ProjectName_project_summary.html
+           ├── ProjectName_project_summary.md
+           └── ProjectName_sample_info.txt
+    ├── manifestFiles/
+           └── <NGI_ID>.02-FASTQ.<flowcell>.<NGI_ID>_<flowcell-mode>_<lane-number>_manifest.txt
 
 
  --ProjectName_lanes_info.txt
@@ -72,15 +72,15 @@ ProjectID -> SampleN
 ==================================================================
 Each sample directory will contain the following subfolders:
 
-|--ProjectID/
-   |--SampleN/
-    |--02-FASTQ/
+── ProjectID
+   ├── SampleN/
+    ├── 02-FASTQ/
 
 ==================================================================
 ProjectID -> SampleN -> 02-FASTQ
 ==================================================================
 Contains a subfolder for each flowcell, which in turn contains the FastQ files for each read.
 
-|--02-FASTQ/
-    |--<flowcell>/
-           --<NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+── 02-FASTQ
+    ├── <flowcell>/
+           └── <NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
