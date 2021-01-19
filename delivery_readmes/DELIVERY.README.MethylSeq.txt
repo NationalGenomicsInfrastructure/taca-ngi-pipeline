@@ -1,0 +1,96 @@
+README
+=======
+
+MethylSeq Best Practice analysis: Delivered files
+-----------------------------------------------------------------
+
+==================================================================
+ProjectID
+==================================================================
+The data delivery comes in a folder named by the NGI project ID. This contains one “00-Reports“ directory, a directory for each sample with its data, as well as the BP analysis data in a folder called “/results.” The root folder also contains the following files:
+
+--ACKNOWLEDGEMENTS.txt
+A file describing what to include in any publications using this data.
+
+--miscellaneous.lst
+A list of the files of the delivery, excluding raw data.
+
+--miscellaneous.md5
+A file to check the integrity of the miscellaneous.lst file.
+
+--SampleN.lst
+A list of the raw data files of SampleN.
+
+--SampleN.md5
+A file to check the integrity of the SampleN.lst file.
+
+File integrity checks
+---------------------
+It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following:
+md5sum -c file_with_checksums.md5
+For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
+
+
+==================================================================
+ProjectID -> 00-Reports
+==================================================================
+The 00-Report folder contains reports with sequencing information about the runs, about the lanes, libraries, and samples. It also contains a MultiQC report.
+
+
+── ProjectID/
+   ├── 00-Reports/
+   │   ├── ProjectName_lanes_info.txt
+   │   ├── ProjectName_library_info.txt
+   │   ├── ProjectName_multiqc_report.html
+   │   ├── ProjectName_project_summary.html
+   │   ├── ProjectName_project_summary.md
+   │   └── ProjectName_sample_info.txt
+   └── manifestFiles/
+       └── <NGI_ID>.02-FASTQ.<flowcell>.<NGI_ID>_<flowcell-mode>_<lane-number>_manifest.txt
+
+
+--ProjectName_lanes_info.txt
+A file with statistics about the run, such as date, FC ID, lane, million clusters, PhiX error rate, Q30, and method.
+
+--ProjectName_library_info.txt
+A file with statistics about the library, such as index, library prep, and passing/failing library QC.
+
+--ProjectName_multiqc_report.html
+A HTML report summarising the raw sequencing quality-control results graphically, based on the bioinformatics tools FastQC and FastQ Screen.
+
+--ProjectName_project_summary.html
+A report summarising the information about the run, samples, and library.
+
+--ProjectName_project_summary.md
+The .md file of the project_summary.html file used to generate the report.
+
+ --ProjectName_sample_info.txt
+A file with information about the samples such as names, million reads, and Q30 values.
+
+--<NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+A file summarizing the run with information about instruments and library.
+
+
+==================================================================
+ProjectID -> SampleN
+==================================================================
+Each sample directory will contain the following subfolders:
+
+── ProjectID/
+   └── SampleN/
+       └── 02-FASTQ/
+
+==================================================================
+ProjectID -> SampleN -> 02-FASTQ
+==================================================================
+Contains a subfolder for each flowcell, which in turn contains the FastQ files for each read.
+
+── 02-FASTQ/
+   └── <flowcell>/
+       └── <NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+
+==================================================================
+ProjectID -> results/
+==================================================================
+Contains the results from the best practice analysis run using the nf-core/methylseq pipeline.
+For a description of these files, please visit the nf-core documentation page: https://nf-co.re/methylseq/output
