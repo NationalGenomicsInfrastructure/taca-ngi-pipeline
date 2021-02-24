@@ -1,0 +1,119 @@
+README
+=======
+
+The README describes the content of the delivered data.
+-----------------------------------------------------------------
+
+====================================================================
+ProjectID
+====================================================================
+The root folder, which is named by the NGI project ID, contains one report folder, one analysis results folder and a folder for each sample.
+Each sample folder is accompanied by a .lst-file containing a list of the files in the folder and a .md5-file containing the MD5-checksums of the files in the folder.
+Use the MD5-checksums to verify the integrity of the files after transfer.
+
+├──ProjectID
+	├── 00-Reports
+	├── 01-RNA-Results
+        ├── Sample1
+        ├── Sample1.lst
+        ├── Sample1.md5
+        ├── Sample2
+        ├── Sample2.lst
+        ├── Sample2.md5
+	...
+	...
+        ├── SampleN
+        ├── SampleN.lst
+        └── SampleN.md5
+
+
+The root folder contains following files as well:
+
+├──ProjectID
+        ├── ACKNOWLEDGEMENTS.txt
+        ├── DELIVERY.README.SAREK.txt
+        ├── miscellaneous.lst
+        └── miscellaneous.md5
+
+--ACKNOWLEDGEMENTS.txt
+A file describing what to include in any publications using this data.
+
+--miscellaneous.lst
+A list of the files of the delivery, excluding raw data.
+
+--miscellaneous.md5
+A file to check the integrity of the miscellaneous.lst file.
+
+
+File integrity checks
+---------------------
+It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following:
+md5sum -c file_with_checksums.md5
+For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
+
+
+====================================================================
+ProjectID -> 00-Reports
+====================================================================
+00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
+
+├── 00-Reports
+	├── ProjectName_project_summary.html
+	├── ProjectName_sample_info.txt
+	├── ProjectName_lane_info.txt
+	├── ProjectName_library_info.txt
+	├── ProjectName_multiqc_report.html
+	└── manifestFiles
+		└── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+
+--ProjectName_project_summary.html
+A report summarizing information about the project
+
+--ProjectName_[sample/lane/library]_info.txt
+Tab-separated text files for each table found in the report, convenient for loading into Excel
+
+--ProjectName_multiqc_report.html
+Report summarizing general quality statistics based on the bioinformatics tools FastQC and FastQ Screen.
+
+--<ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+A file summarizing the run with information about instruments and library.
+
+
+====================================================================
+ProjectID -> 01-RNA-Results
+====================================================================
+Contains best practics analysis results from the nf-core/rnaseq pipeline. Refer to
+https://github.com/nf-core/rnaseq/blob/1.4.2/docs/output.md for output description.
+
+├── 01-RNA-Results
+	├── dupradar
+	├── fastqc
+	├── featureCounts
+	├── markDuplicates
+	├── MultiQC
+	├── pipeline_info
+	├── preseq
+	├── qualimap
+	├── rseqc
+	├── sample_correlation
+	├── STAR
+	├── stringtieFPKM
+	└── trim_galore
+
+
+====================================================================
+ProjectID -> SampleN
+====================================================================
+Each sample directory contains the following subfolders:
+
+├──SampleN
+	└──02-FASTQ
+
+--------------------------------------------------------------------
+ProjectID -> SampleN -> 02-FASTQ
+--------------------------------------------------------------------
+Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
+
+├──02-FASTQ
+	└── <Flowcell>
+		└── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
