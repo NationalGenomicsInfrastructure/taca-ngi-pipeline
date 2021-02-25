@@ -1,15 +1,16 @@
 README
 =======
 
-The README describes the content of the delivered data.
------------------------------------------------------------------
+Many thanks for sequencing your samples with the SciLifeLab National Genomics Infrastructure!
+This README describes the different files present in your data delivery, including information about verifying file integrity and finding results.
+If you have any questions, please don't hesitate to get in touch: support@ngisweden.se
 
 ====================================================================
 ProjectID
 ====================================================================
 The root folder, which is named by the NGI project ID, contains one report folder, one analysis results folder and a folder for each sample.
-Each sample folder is accompanied by a .lst-file containing a list of the files in the folder and a .md5-file containing the MD5-checksums of the files in the folder.
-Use the MD5-checksums to verify the integrity of the files after transfer.
+Each sample folder is accompanied by a .lst file containing a list of the files in the folder and a .md5 file containing the MD5-checksums of the files in the folder.
+Use the md5 checksums to verify the integrity of the files after transfer.
 
 ├──ProjectID
 	├── 00-Reports
@@ -47,8 +48,10 @@ A file to check the integrity of the miscellaneous.lst file.
 
 File integrity checks
 ---------------------
-It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following:
-md5sum -c file_with_checksums.md5
+It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following command in the terminal (replace with the relevant file name):
+
+md5sum -c [checksum_file.md5]
+
 For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
 
 
@@ -67,10 +70,10 @@ ProjectID -> 00-Reports
 		└── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 --ProjectName_project_summary.html
-A report summarizing information about the project
+A report summarizing information about the project.
 
 --ProjectName_[sample/lane/library]_info.txt
-Tab-separated text files for each table found in the report, convenient for loading into Excel
+Tab-separated text files for each table found in the report, convenient for loading into Excel.
 
 --ProjectName_multiqc_report.html
 Report summarizing general quality statistics based on the bioinformatics tools FastQC and FastQ Screen.
