@@ -1,8 +1,9 @@
 README
 =======
 
-The README describes the content of the delivered data.
------------------------------------------------------------------
+Many thanks for sequencing your samples with the SciLifeLab National Genomics Infrastructure!
+This README describes the different files present in your data delivery, including information about verifying file integrity and finding results.
+If you have any questions, please don't hesitate to get in touch: support@ngisweden.se
 
 ====================================================================
 ProjectID
@@ -12,27 +13,22 @@ Each sample folder is accompanied by a .lst-file containing a list of the files 
 Use the MD5-checksums to verify the integrity of the files after transfer.
 
 ├──ProjectID
-	├── 00-Reports
-        ├── Sample1
-        ├── Sample1.lst
-        ├── Sample1.md5
-        ├── Sample2
-        ├── Sample2.lst
-        ├── Sample2.md5
-	...
-	...
-        ├── SampleN
-        ├── SampleN.lst
-        └── SampleN.md5
-
-
-The root folder contains following files as well:
-
-├──ProjectID
-        ├── ACKNOWLEDGEMENTS.txt
-        ├── DELIVERY.README.SAREK.txt
-        ├── miscellaneous.lst
-        └── miscellaneous.md5
+   ├── 00-Reports/
+   │   ├── Sample1/
+   │   ├── Sample1.lst
+   │   ├── Sample1.md5
+   │   ├── Sample2/
+   │   ├── Sample2.lst
+   │   ├── Sample2.md5
+   ...
+   ...
+   │   ├── SampleN/
+   │   ├── SampleN.lst
+   │   └── SampleN.md5
+   ├── ACKNOWLEDGEMENTS.txt
+   ├── DELIVERY.README.SAREK.txt
+   ├── miscellaneous.lst
+   └── miscellaneous.md5
 
 --ACKNOWLEDGEMENTS.txt
 A file describing what to include in any publications using this data.
@@ -47,7 +43,9 @@ A file to check the integrity of the miscellaneous.lst file.
 File integrity checks
 ---------------------
 It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following:
-md5sum -c file_with_checksums.md5
+
+md5sum -c [file_with_checksums.md5]
+
 For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
 
 
@@ -56,15 +54,15 @@ ProjectID -> 00-Reports
 ====================================================================
 00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
 
-├── 00-Reports
-	├── ProjectName_project_summary.html
-	├── ProjectName_sample_info.txt
-	├── ProjectName_lane_info.txt
-	├── ProjectName_library_info.txt
-	├── ProjectName_multiqc_report.html
-	├── ProjectName_SarekGermline_multiqc_report.html
-	└── manifestFiles
-		└── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+├── 00-Reports/
+    ├── ProjectName_project_summary.html
+    ├── ProjectName_sample_info.txt
+    ├── ProjectName_lane_info.txt
+    ├── ProjectName_library_info.txt
+    ├── ProjectName_multiqc_report.html
+    ├── ProjectName_SarekGermline_multiqc_report.html
+    └── manifestFiles/
+        └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 --ProjectName_project_summary.html
 A report summarizing information about the project
@@ -86,28 +84,19 @@ ProjectID -> SampleN
 ====================================================================
 Each sample directory contains the following subfolders:
 
-├──SampleN
-	├──01-SarekGermline-Results
-	└──02-FASTQ
+├──SampleN/
+   ├──01-SarekGermline-Results/
+   └──02-FASTQ/
 
---------------------------------------------------------------------
-ProjectID -> SampleN -> 01-SarekGermline-Results
---------------------------------------------------------------------
+--01-SarekGermline-Results/
 Contains output from the sarek pipeline. Refer to
-https://github.com/nf-core/sarek/blob/2.6.1/docs/output.md for output description.
-
-├──01-SarekGermline-Results/
-	├── Annotation
-	├── pipeline_info
-	├── Preprocessing
-	├── Reports
-	└── VariantCalling
+https://nf-co.re/sarek for output description.
 
 --------------------------------------------------------------------
 ProjectID -> SampleN -> 02-FASTQ
 --------------------------------------------------------------------
 Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
 
-├──02-FASTQ
-	└── <Flowcell>
-		└── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+├──02-FASTQ/
+   └── <Flowcell>/
+       └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz

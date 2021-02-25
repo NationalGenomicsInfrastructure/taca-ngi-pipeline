@@ -13,28 +13,23 @@ Each sample folder is accompanied by a .lst file containing a list of the files 
 Use the md5 checksums to verify the integrity of the files after transfer.
 
 ├──ProjectID
-	├── 00-Reports
-	├── 01-RNA-Results
-        ├── Sample1
-        ├── Sample1.lst
-        ├── Sample1.md5
-        ├── Sample2
-        ├── Sample2.lst
-        ├── Sample2.md5
-	...
-	...
-        ├── SampleN
-        ├── SampleN.lst
-        └── SampleN.md5
-
-
-The root folder contains following files as well:
-
-├──ProjectID
-        ├── ACKNOWLEDGEMENTS.txt
-        ├── DELIVERY.README.RNASeq.txt
-        ├── miscellaneous.lst
-        └── miscellaneous.md5
+   ├── 00-Reports/
+   ├── 01-RNA-Results/
+   │   ├── Sample1/
+   │   ├── Sample1.lst
+   │   ├── Sample1.md5
+   │   ├── Sample2/
+   │   ├── Sample2.lst
+   │   ├── Sample2.md5
+   ...
+   ...
+   │   ├── SampleN/
+   │   ├── SampleN.lst
+   │   └── SampleN.md5
+   ├── ACKNOWLEDGEMENTS.txt
+   ├── DELIVERY.README.RNASeq.txt
+   ├── miscellaneous.lst
+   └── miscellaneous.md5
 
 --ACKNOWLEDGEMENTS.txt
 A file describing what to include in any publications using this data.
@@ -60,14 +55,14 @@ ProjectID -> 00-Reports
 ====================================================================
 00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
 
-├── 00-Reports
-	├── ProjectName_project_summary.html
-	├── ProjectName_sample_info.txt
-	├── ProjectName_lane_info.txt
-	├── ProjectName_library_info.txt
-	├── ProjectName_multiqc_report.html
-	└── manifestFiles
-		└── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+├── 00-Reports/
+    ├── ProjectName_project_summary.html
+    ├── ProjectName_sample_info.txt
+    ├── ProjectName_lane_info.txt
+    ├── ProjectName_library_info.txt
+    ├── ProjectName_multiqc_report.html
+    └── manifestFiles/
+        └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 --ProjectName_project_summary.html
 A report summarizing information about the project.
@@ -88,35 +83,19 @@ ProjectID -> 01-RNA-Results
 Contains best practice analysis results from the nf-core/rnaseq pipeline. Refer to
 https://nf-co.re/rnaseq/output for output description.
 
-├── 01-RNA-Results
-	├── dupradar
-	├── fastqc
-	├── featureCounts
-	├── markDuplicates
-	├── MultiQC
-	├── pipeline_info
-	├── preseq
-	├── qualimap
-	├── rseqc
-	├── sample_correlation
-	├── STAR
-	├── stringtieFPKM
-	└── trim_galore
-
-
 ====================================================================
 ProjectID -> SampleN
 ====================================================================
 Each sample directory contains the following subfolders:
 
-├──SampleN
-	└──02-FASTQ
+├──SampleN/
+   └──02-FASTQ/
 
 --------------------------------------------------------------------
 ProjectID -> SampleN -> 02-FASTQ
 --------------------------------------------------------------------
 Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
 
-├──02-FASTQ
-	└── <Flowcell>
-		└── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+├──02-FASTQ/
+   └── <Flowcell>/
+       └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
