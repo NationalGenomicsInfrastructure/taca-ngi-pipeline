@@ -90,7 +90,7 @@ Each sample directory contains the following subfolders:
 
 --01-SarekGermline-Results/
 Contains output from the sarek pipeline. Refer to
-https://nf-co.re/sarek for output description.
+https://nf-co.re/sarek/output for output description.
 
 --------------------------------------------------------------------
 ProjectID -> SampleN -> 02-FASTQ
