@@ -15,17 +15,17 @@ Use the md5 checksums to verify the integrity of the files after transfer.
 ├──ProjectID
    ├── 00-Reports/
    ├── 01-RNA-Results/
-   │   ├── Sample1/
-   │   ├── Sample1.lst
-   │   ├── Sample1.md5
-   │   ├── Sample2/
-   │   ├── Sample2.lst
-   │   ├── Sample2.md5
+   ├── Sample1/
+   ├── Sample1.lst
+   ├── Sample1.md5
+   ├── Sample2/
+   ├── Sample2.lst
+   ├── Sample2.md5
    ...
    ...
    │   ├── SampleN/
-   │   ├── SampleN.lst
-   │   └── SampleN.md5
+   ├── SampleN.lst
+   ├── SampleN.md5
    ├── ACKNOWLEDGEMENTS.txt
    ├── DELIVERY.README.RNASeq.txt
    ├── miscellaneous.lst
