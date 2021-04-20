@@ -64,7 +64,7 @@ The 00-Report folder contains reports with sequencing information about the runs
        ├── ProjectName_project_summary.md
        ├── ProjectName_sample_info.txt
        └── manifestFiles/
-            └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+            └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 
 --ProjectName_lanes_info.txt
@@ -85,7 +85,7 @@ The .md file of the project_summary.html file used to generate the report.
 --ProjectName_sample_info.txt
 A file with information about the samples such as names, million reads, and Q30 values.
 
---<ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+--<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 A file summarizing the run with information about instruments and library.
 
 
@@ -105,4 +105,4 @@ Contains a subfolder for each flowcell, which in turn contains the FastQ files f
 
 ── 02-FASTQ/
    └── <flowcell>/
-        └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+         └── <SampleID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
