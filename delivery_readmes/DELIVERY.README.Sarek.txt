@@ -55,14 +55,14 @@ ProjectID -> 00-Reports
 00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
 
 ├── 00-Reports/
-    ├── ProjectName_project_summary.html
-    ├── ProjectName_sample_info.txt
-    ├── ProjectName_lane_info.txt
-    ├── ProjectName_library_info.txt
-    ├── ProjectName_multiqc_report.html
-    ├── ProjectName_SarekGermline_multiqc_report.html
-    └── manifestFiles/
-        └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+   ├── ProjectName_project_summary.html
+   ├── ProjectName_sample_info.txt
+   ├── ProjectName_lane_info.txt
+   ├── ProjectName_library_info.txt
+   ├── ProjectName_multiqc_report.html
+   ├── ProjectName_SarekGermline_multiqc_report.html
+   └── manifestFiles/
+         └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 --ProjectName_project_summary.html
 A report summarizing information about the project
@@ -99,4 +99,4 @@ Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
 
 ├──02-FASTQ/
    └── <Flowcell>/
-       └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+         └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
