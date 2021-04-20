@@ -23,7 +23,7 @@ Use the md5 checksums to verify the integrity of the files after transfer.
    ├── Sample2.md5
    ...
    ...
-   │   ├── SampleN/
+   ├── SampleN/
    ├── SampleN.lst
    ├── SampleN.md5
    ├── ACKNOWLEDGEMENTS.txt
