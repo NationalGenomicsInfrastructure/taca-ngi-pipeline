@@ -71,10 +71,7 @@ A report summarizing information about the project
 Tab-separated text files for each table found in the report, convenient for loading into Excel
 
 --ProjectName_multiqc_report.html
-Report summarizing general quality statistics based on the bioinformatics tools FastQC and FastQ Screen.
-
---ProjectName_SarekGermline_multiqc_report.html
-Report summarizing bioinformatic analysis results for all samples
+Report summarizing general quality statistics and bioinformatic analysis results for all samples.
 
 --<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 A file summarizing the run with information about instruments and library.
