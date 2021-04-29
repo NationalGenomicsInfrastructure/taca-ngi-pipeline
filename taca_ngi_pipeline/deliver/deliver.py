@@ -199,8 +199,8 @@ class Deliverer(object):
             with open(digestpath, 'w') as dh, open(filelistpath, 'w') as fh:
                 agent = transfer.SymlinkAgent(None, None, relative=True)
                 for src, dst, digest in self.gather_files():
-                    agent.src_path = src
-                    agent.dest_path = dst
+                    agent.src_path = os.path.realpath(src)
+                    agent.dest_path = os.path.realpath(dst)
                     try:
                         agent.transfer()
                     except (transfer.TransferError, transfer.SymlinkError) as e:
