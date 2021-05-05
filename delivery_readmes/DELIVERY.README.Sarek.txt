@@ -52,7 +52,7 @@ For more information, please see https://ngisweden.scilifelab.se/resources/data-
 ====================================================================
 ProjectID -> 00-Reports
 ====================================================================
-00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
+00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and a MultiQC report.
 
 ├── 00-Reports/
    ├── ProjectName_project_summary.html
@@ -60,7 +60,6 @@ ProjectID -> 00-Reports
    ├── ProjectName_lane_info.txt
    ├── ProjectName_library_info.txt
    ├── ProjectName_multiqc_report.html
-   ├── ProjectName_SarekGermline_multiqc_report.html
    └── manifestFiles/
          └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
