@@ -15,17 +15,17 @@ Use the md5 checksums to verify the integrity of the files after transfer.
 ├──ProjectID
    ├── 00-Reports/
    ├── 01-RNA-Results/
-   │   ├── Sample1/
-   │   ├── Sample1.lst
-   │   ├── Sample1.md5
-   │   ├── Sample2/
-   │   ├── Sample2.lst
-   │   ├── Sample2.md5
+   ├── Sample1/
+   ├── Sample1.lst
+   ├── Sample1.md5
+   ├── Sample2/
+   ├── Sample2.lst
+   ├── Sample2.md5
    ...
    ...
-   │   ├── SampleN/
-   │   ├── SampleN.lst
-   │   └── SampleN.md5
+   ├── SampleN/
+   ├── SampleN.lst
+   ├── SampleN.md5
    ├── ACKNOWLEDGEMENTS.txt
    ├── DELIVERY.README.RNASeq.txt
    ├── miscellaneous.lst
@@ -62,7 +62,7 @@ ProjectID -> 00-Reports
     ├── ProjectName_library_info.txt
     ├── ProjectName_multiqc_report.html
     └── manifestFiles/
-        └── <ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+        └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 --ProjectName_project_summary.html
 A report summarizing information about the project.
@@ -73,7 +73,7 @@ Tab-separated text files for each table found in the report, convenient for load
 --ProjectName_multiqc_report.html
 Report summarizing general quality statistics based on the bioinformatics tools FastQC and FastQ Screen.
 
---<ProjectID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+--<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 A file summarizing the run with information about instruments and library.
 
 
@@ -98,4 +98,4 @@ Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
 
 ├──02-FASTQ/
    └── <Flowcell>/
-       └── <ProjectID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+         └── <SampleID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz

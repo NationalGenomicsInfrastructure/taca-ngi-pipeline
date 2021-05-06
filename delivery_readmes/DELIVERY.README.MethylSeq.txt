@@ -39,14 +39,14 @@ The 00-Report folder contains reports with sequencing information about the runs
 
 ── ProjectID/
    ├── 00-Reports/
-   │   ├── ProjectName_lanes_info.txt
-   │   ├── ProjectName_library_info.txt
-   │   ├── ProjectName_multiqc_report.html
-   │   ├── ProjectName_project_summary.html
-   │   ├── ProjectName_project_summary.md
-   │   └── ProjectName_sample_info.txt
-   └── manifestFiles/
-       └── <NGI_ID>.02-FASTQ.<flowcell>.<NGI_ID>_<flowcell-mode>_<lane-number>_manifest.txt
+       ├── ProjectName_lanes_info.txt
+       ├── ProjectName_library_info.txt
+       ├── ProjectName_multiqc_report.html
+       ├── ProjectName_project_summary.html
+       ├── ProjectName_project_summary.md
+       ├── ProjectName_sample_info.txt
+       └── manifestFiles/
+            └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 
 --ProjectName_lanes_info.txt
@@ -64,10 +64,10 @@ A report summarising the information about the run, samples, and library.
 --ProjectName_project_summary.md
 The .md file of the project_summary.html file used to generate the report.
 
- --ProjectName_sample_info.txt
+--ProjectName_sample_info.txt
 A file with information about the samples such as names, million reads, and Q30 values.
 
---<NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+--<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 A file summarizing the run with information about instruments and library.
 
 
@@ -87,7 +87,7 @@ Contains a subfolder for each flowcell, which in turn contains the FastQ files f
 
 ── 02-FASTQ/
    └── <flowcell>/
-       └── <NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+         └── <SampleID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
 
 ==================================================================
 ProjectID -> results/

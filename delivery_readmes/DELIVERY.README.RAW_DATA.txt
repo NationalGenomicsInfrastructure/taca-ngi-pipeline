@@ -1,13 +1,34 @@
 README
 =======
 
-Raw data: Delivered files
------------------------------------------------------------------
+Many thanks for sequencing your samples with the SciLifeLab National Genomics Infrastructure!
+This README describes the different files present in your data delivery, including information about verifying file integrity and finding results.
+If you have any questions, please don't hesitate to get in touch: support@ngisweden.se
 
 ==================================================================
 ProjectID
 ==================================================================
-The data delivery comes in a folder named by the NGI project ID. This contains one “00-Reports“ directory, a directory for each sample with its data. The root folder also contains the following files:
+The root folder, which is named by the NGI project ID, contains one report folder and a folder for each sample.
+Each sample folder is accompanied by a .lst-file containing a list of the files in the folder and a .md5-file containing the MD5-checksums of the files in the folder.
+Use the MD5-checksums to verify the integrity of the files after transfer.
+
+├──ProjectID
+   ├── 00-Reports/
+   ├── Sample1/
+   ├── Sample1.lst
+   ├── Sample1.md5
+   ├── Sample2/
+   ├── Sample2.lst
+   ├── Sample2.md5
+   ...
+   ...
+   ├── SampleN/
+   ├── SampleN.lst
+   ├── SampleN.md5
+   ├── ACKNOWLEDGEMENTS.txt
+   ├── DELIVERY.README.RAW_DATA.txt
+   ├── miscellaneous.lst
+   └── miscellaneous.md5
 
 --ACKNOWLEDGEMENTS.txt
 A file describing what to include in any publications using this data.
@@ -18,16 +39,13 @@ A list of the files of the delivery, excluding raw data.
 --miscellaneous.md5
 A file to check the integrity of the miscellaneous.lst file.
 
---SampleN.lst
-A list of the raw data files of SampleN.
-
---SampleN.md5
-A file to check the integrity of the SampleN.lst file.
 
 File integrity checks
 ---------------------
-It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following:
-md5sum -c file_with_checksums.md5
+It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following command in the terminal (replace with the relevant file name):
+
+md5sum -c [checksum_file.md5]
+
 For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
 
 
@@ -39,35 +57,35 @@ The 00-Report folder contains reports with sequencing information about the runs
 
 ── ProjectID/
    ├── 00-Reports/
-   │   ├── ProjectName_lanes_info.txt
-   │   ├── ProjectName_library_info.txt
-   │   ├── ProjectName_multiqc_report.html
-   │   ├── ProjectName_project_summary.html
-   │   ├── ProjectName_project_summary.md
-   │   └── ProjectName_sample_info.txt
-   └── manifestFiles/
-       └── <NGI_ID>.02-FASTQ.<flowcell>.<NGI_ID>_<flowcell-mode>_<lane-number>_manifest.txta 
+       ├── ProjectName_lanes_info.txt
+       ├── ProjectName_library_info.txt
+       ├── ProjectName_multiqc_report.html
+       ├── ProjectName_project_summary.html
+       ├── ProjectName_project_summary.md
+       ├── ProjectName_sample_info.txt
+       └── manifestFiles/
+            └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 
 
- --ProjectName_lanes_info.txt
-A file with statistics about the run, such as date, FC ID, lane,    million clusters, PhiX error rate, Q30, and method.
+--ProjectName_lanes_info.txt
+A file with statistics about the run, such as date, FC ID, lane, million clusters, PhiX error rate, Q30, and method.
 
 --ProjectName_library_info.txt
 A file with statistics about the library, such as index, library prep, and passing/failing library QC.
 
 --ProjectName_multiqc_report.html
-A HTML report summarising the raw sequencing quality-control results graphically, based on the bioinformatics tools FastQC and FastQ Screen.
+A HTML report summarizing the raw sequencing quality-control results graphically, based on the bioinformatics tools FastQC and FastQ Screen.
 
 --ProjectName_project_summary.html
-A report summarising the information about the run, samples, and library.
+A report summarizing the information about the run, samples, and library.
 
 --ProjectName_project_summary.md
 The .md file of the project_summary.html file used to generate the report.
 
- --ProjectName_sample_info.txt
+--ProjectName_sample_info.txt
 A file with information about the samples such as names, million reads, and Q30 values.
 
---<NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+--<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
 A file summarizing the run with information about instruments and library.
 
 
@@ -78,7 +96,7 @@ Each sample directory will contain the following subfolders:
 
 ── ProjectID/
    └── SampleN/
-       └── 02-FASTQ/
+        └── 02-FASTQ/
 
 ==================================================================
 ProjectID -> SampleN -> 02-FASTQ
@@ -87,4 +105,4 @@ Contains a subfolder for each flowcell, which in turn contains the FastQ files f
 
 ── 02-FASTQ/
    └── <flowcell>/
-       └── <NGI-ID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
+         └── <SampleID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz
