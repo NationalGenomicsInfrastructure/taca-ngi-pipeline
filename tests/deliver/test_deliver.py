@@ -1,6 +1,6 @@
 """ Unit tests for the deliver commands """
 
-import __builtin__
+import six.moves.builtins
 import json
 # noinspection PyPackageRequirements
 import mock
@@ -239,7 +239,7 @@ class TestDeliverer(unittest.TestCase):
                 taca_ngi_pipeline.utils.filesystem, 'hashfile', return_value=exp_checksum):
             # ensure that a thrown IOError when writing checksum cache file is handled gracefully
             # mock hashfile's call to open builtin
-            with mock.patch.object(__builtin__, 'open', side_effect=IOError("mocked IOError")) as iomock:
+            with mock.patch.object(six.moves.builtins, 'open', side_effect=IOError("mocked IOError")) as iomock:
                 for spath, _, obs_checksum in self.deliverer.gather_files():
                     checksumfile = "{}.{}".format(
                         spath, self.deliverer.hash_algorithm)
