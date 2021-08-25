@@ -122,7 +122,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             try:
                 cmd = ['moverinfo', '-i', delivery_token]
                 output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except Exception, e:
+            except Exception as e:
                 logger.error('Cannot get the delivery status for project {}'.format(self.projectid))
                 # write Traceback to the log file
                 logger.exception(e)
@@ -172,7 +172,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 try:
                     sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.update_delivery_status(status=delivery_status)
-                except Exception, e:
+                except Exception as e:
                     logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
                     logger.exception(e)
             #now reset delivery
@@ -186,7 +186,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                         continue
                     if sample_deliverer.get_delivery_status() != 'DELIVERED':
                         all_samples_delivered = False
-                except Exception, e:
+                except Exception as e:
                     logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
                     logger.exception(e)
             if all_samples_delivered:
@@ -240,7 +240,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         # connect to charon, return list of sample objects that have been staged
         try:
             samples_to_deliver = self.get_samples_from_charon(delivery_status="STAGED")
-        except Exception, e:
+        except Exception as e:
             logger.error("Cannot get samples from Charon. Error says: {}".format(str(e)))
             logger.exception(e)
             raise e
@@ -266,7 +266,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             try:
                 sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
                 sample_deliverer.deliver_sample()
-            except Exception, e:
+            except Exception as e:
                 logger.error('Sample {} has not been hard staged. Error says: {}'.format(sample_id, e))
                 logger.exception(e)
                 raise e
@@ -288,7 +288,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 else:
                     shutil.copy(src_misc, dst_misc)
                 hard_staged_misc.append(itm)
-            except Exception, e:
+            except Exception as e:
                 logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, self.projectid, e))
                 logger.exception(e)
                 raise e
@@ -304,7 +304,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             delivery_project_info = self._create_delivery_project()
             supr_name_of_delivery = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
-        except Exception, e:
+        except Exception as e:
             logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
         delivery_token = self.do_delivery(supr_name_of_delivery) # instead of to_outbox
@@ -323,7 +323,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                     sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.save_delivery_token_in_charon(delivery_token)
                     sample_deliverer.add_supr_name_delivery_in_charon(supr_name_of_delivery)
-                except Exception, e:
+                except Exception as e:
                     logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
                     logger.exception(e)
         else:
@@ -356,7 +356,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             shutil.copy(runfolder_archive, dst)
             shutil.copy(runfolder_md5file, dst)
             logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
-        except IOError, e:
+        except IOError as e:
             logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
 
         delivery_id = ''
@@ -364,7 +364,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             delivery_project_info = self._create_delivery_project()
             delivery_id = delivery_project_info['name']
             logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, delivery_id))
-        except Exception, e:
+        except Exception as e:
             logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
 
@@ -407,7 +407,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
                 logger.info('Charon delivery_projects for project {} updated with value {}'.format(self.projectid, supr_name_of_delivery))
             else:
                 logger.warn('Charon delivery_projects for project {} not updated with value {} because the value was already present'.format(self.projectid, supr_name_of_delivery))
-        except Exception, e:
+        except Exception as e:
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
@@ -429,7 +429,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         try:
             status_db.save_db_doc(project_page)
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, supr_name_of_delivery))
-        except Exception, e:
+        except Exception as e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
@@ -517,14 +517,14 @@ class GrusProjectDeliverer(ProjectDeliverer):
             try:
                 self.pi_email = self._get_order_detail()['fields']['project_pi_email']
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
-            except Exception, e:
+            except Exception as e:
                 logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
                 raise e
         # try getting PI SNIC ID
         try:
             self.pi_snic_id = self._get_user_snic_id(self.pi_email)
             logger.info("SNIC PI-id for delivering of project {} is {}".format(self.projectid, self.pi_snic_id))
-        except Exception, e:
+        except Exception as e:
             logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
             raise e
 
@@ -642,11 +642,11 @@ class GrusSampleDeliverer(SampleDeliverer):
             self.update_delivery_status(status="IN_PROGRESS")
             self.do_delivery()
         #in case of faiulure put again the status to STAGED
-        except DelivererInterruptedError, e:
+        except DelivererInterruptedError as e:
             self.update_delivery_status(status="STAGED")
             logger.exception(e)
             raise(e)
-        except Exception, e:
+        except Exception as e:
             self.update_delivery_status(status="STAGED")
             logger.exception(e)
             raise(e)
@@ -671,7 +671,7 @@ class GrusSampleDeliverer(SampleDeliverer):
                 logger.info('Charon delivery_projects for sample {} updated with value {}'.format(self.sampleid, supr_name_of_delivery))
             else:
                 logger.warn('Charon delivery_projects for sample {} not updated with value {} because the value was already present'.format(self.sampleid, supr_name_of_delivery))
-        except Exception, e:
+        except Exception as e:
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.sampleid, e))
             logger.exception(e)
 
