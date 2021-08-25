@@ -5,9 +5,9 @@ import couchdb
 import os
 import re
 import logging
+import six
 
 from collections import defaultdict
-from past.builtins import basestring
 
 
 class xml_generator(object):
@@ -278,7 +278,7 @@ class xml_generator(object):
 
     def _check_and_load_project(self, project):
         """ Get the project document from couchDB if it is not """
-        if isinstance(project, basestring):
+        if isinstance(project, six.string_types):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
             project = self.pcon.get_entry(project, use_id_view=True)
         self.project = project
