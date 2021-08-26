@@ -5,6 +5,7 @@ from logging import getLogger
 from os import path, walk, sep as os_sep
 from taca.utils.misc import hashfile
 from io import open
+import six
 
 logger = getLogger(__name__)
 
@@ -125,7 +126,7 @@ def merge_dicts(mdict, sdict):
     """Merge the 2 given dictioneries, if a key already exists it is
        replaced/updated with new values depending upon data types
     """
-    for k, v in sdict.iteritems():
+    for k, v in six.iteritems(sdict):
         if isinstance(v, dict) and isinstance(mdict.get(k), dict):
             mdict[k] = merge_dicts(mdict[k], v)
         elif isinstance(v, list) and isinstance(mdict.get(k), list):

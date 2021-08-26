@@ -147,7 +147,7 @@ class xml_generator(object):
         """ Go through the flowcells and collect needed informations """
         self.sample_aggregated_stat = defaultdict(dict)
         # try to get instrument type and samples sequenced
-        for fc, fc_info in self.flowcells.iteritems():
+        for fc, fc_info in six.iteritems(self.flowcells):
             fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'])
             if not fc_obj:
                 self.LOG.warn("Could not fetch flowcell {} from {} db, will remove it from list".format(fc_info['run_name'], fc_info['db']))
@@ -175,7 +175,7 @@ class xml_generator(object):
                     if not self.ignore_lib_prep:
                         try:
                             sample_preps_fcs = self.sample_prep_fc_map.get(lane_sample)
-                            prep_id_list = [pid for pid, seqruns in sample_preps_fcs.iteritems() if full_run_id in seqruns]
+                            prep_id_list = [pid for pid, seqruns in six.iteritems(sample_preps_fcs) if full_run_id in seqruns]
                             assert len(prep_id_list) == 1
                             prep_id = prep_id_list[0]
                         except AssertionError:
@@ -266,7 +266,7 @@ class xml_generator(object):
     def _generate_files_block(self, files, flowcells=None):
         """ Take a 'files' dict and give xml block string to include in final xml """
         file_block = ""
-        for fl, fl_stat in files.iteritems():
+        for fl, fl_stat in six.iteritems(files):
             # collect only fastq files
             if not fl.endswith('fastq.gz'):
                 continue
@@ -302,7 +302,7 @@ class xml_generator(object):
         if not self.ignore_lib_prep:
             for sample in self.samples_delivered.keys():
                 sample_preps = self.project.get("samples", {}).get(sample, {}).get("library_prep", {})
-                for prep, prep_info in sample_preps.iteritems():
+                for prep, prep_info in six.iteritems(sample_preps):
                     self.sample_prep_fc_map[sample][prep] = prep_info.get("sequenced_fc", [])
 
 
