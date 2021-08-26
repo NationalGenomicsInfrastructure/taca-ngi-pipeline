@@ -21,6 +21,7 @@ from taca.utils.statusdb import StatusdbSession, ProjectSummaryConnection
 
 from .deliver import ProjectDeliverer, SampleDeliverer, DelivererInterruptedError
 from ..utils.database import DatabaseError
+from six.moves import input
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def proceed_or_not(question):
     no = set(['no', 'n'])
     sys.stdout.write("{}".format(question))
     while True:
-        choice = raw_input().lower()
+        choice = input().lower()
         if choice in yes:
             return True
         elif choice in no:

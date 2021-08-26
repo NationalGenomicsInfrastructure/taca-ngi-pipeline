@@ -45,7 +45,7 @@ SAMPLECFG = {
 
 class TestMisc(unittest.TestCase):
     
-    @patch('taca_ngi_pipeline.deliver.deliver_grus.raw_input')
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.input')
     def test_proceed_or_not(self, mock_input):
         mock_input.return_value = 'y'
         self.assertTrue(proceed_or_not('Q'))
