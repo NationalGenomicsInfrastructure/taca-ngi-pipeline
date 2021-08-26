@@ -17,6 +17,7 @@ from taca.utils.filesystem import create_folder
 from taca.utils.misc import hashfile
 from taca.utils.transfer import SymlinkError, SymlinkAgent
 from io import open
+from six.moves import range
 
 SAMPLECFG = {
     'deliver': {
@@ -102,7 +103,7 @@ class TestDeliverer(unittest.TestCase):
     def create_content(self, parentdir, level=0, folder=0):
         if not os.path.exists(parentdir):
             os.mkdir(parentdir)
-        for nf in xrange(self.nfiles):
+        for nf in range(self.nfiles):
             open(
                 os.path.join(
                     parentdir,
@@ -111,7 +112,7 @@ class TestDeliverer(unittest.TestCase):
         if level == self.nlevels:
             return
         level += 1
-        for nd in xrange(self.nfolders):
+        for nd in range(self.nfolders):
             self.create_content(
                 os.path.join(
                     parentdir,
@@ -157,7 +158,7 @@ class TestDeliverer(unittest.TestCase):
             os.path.join(
                 self.deliverer.expand_path(self.deliverer.analysispath),
                 "level0_folder0_file{}".format(n))
-            for n in xrange(self.nfiles)]
+            for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][0]
         self.deliverer.files_to_deliver = [pattern]
         self.assertItemsEqual(
@@ -179,8 +180,8 @@ class TestDeliverer(unittest.TestCase):
     def test_gather_files3(self):
         """ Gather the files two levels down """
         expected = ["level2_folder{}_file{}".format(m, n)
-                    for m in xrange(self.nfolders)
-                    for n in xrange(self.nfiles)]
+                    for m in range(self.nfolders)
+                    for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][2]
         self.deliverer.files_to_deliver = [pattern]
         self.assertItemsEqual(
@@ -190,7 +191,7 @@ class TestDeliverer(unittest.TestCase):
     def test_gather_files4(self):
         """ Replace the SAMPLE keyword in pattern """
         expected = ["level1_folder{}_file0".format(n)
-                    for n in xrange(self.nfolders)]
+                    for n in range(self.nfolders)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][3]
         self.deliverer.files_to_deliver = [pattern]
         self.deliverer.sampleid = "level1"
@@ -288,9 +289,9 @@ class TestDeliverer(unittest.TestCase):
             "failed when setting up test")
 
         expected = [os.path.join(dest_path, "level3_folder1_file{}".format(n))
-                    for n in xrange(self.nfiles)]
+                    for n in range(self.nfiles)]
         expected.extend([os.path.join(dest_path, "level3_folder0", "level3_folder0_file{}".format(n))
-                         for n in xrange(self.nfiles)])
+                         for n in range(self.nfiles)])
         pattern = SAMPLECFG['deliver']['files_to_deliver'][6]
         self.deliverer.files_to_deliver = [pattern]
         self.assertItemsEqual(
@@ -415,7 +416,7 @@ class TestDeliverer(unittest.TestCase):
         self.deliverer.stage_delivery()
         self.assertItemsEqual(
             [os.path.exists(e) for e in expected],
-            [True for _ in xrange(len(expected))])
+            [True for _ in range(len(expected))])
 
     def test_expand_path(self):
         """ Paths should expand correctly """
@@ -680,11 +681,11 @@ class TestSampleDeliverer(unittest.TestCase):
         expected = []
         with open(digestfile, 'w') as dh, open(filelist, 'w') as fh:
             curdir = basedir
-            for d in xrange(4):
+            for d in range(4):
                 if d > 0:
                     curdir = os.path.join(curdir, "folder{}".format(d))
                     create_folder(curdir)
-                for n in xrange(5):
+                for n in range(5):
                     fpath = os.path.join(curdir, "file{}".format(n))
                     open(fpath, 'w').close()
                     rpath = os.path.relpath(fpath, basedir)
