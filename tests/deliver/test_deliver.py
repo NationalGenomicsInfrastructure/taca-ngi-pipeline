@@ -232,7 +232,7 @@ class TestDeliverer(unittest.TestCase):
             self.assertTrue(os.path.exists(checksumfile),
                             "checksum cache file was not created")
             with open(checksumfile, 'r') as fh:
-                obs_checksum = fh.next()
+                obs_checksum = next(fh)
             self.assertEqual(obs_checksum, exp_checksum,
                              "cached and returned checksums did not match")
             os.unlink(checksumfile)

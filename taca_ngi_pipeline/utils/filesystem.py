@@ -40,7 +40,7 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
             checksumpath = "{}.{}".format(sourcepath, hash_algorithm)
             try:
                 with open(checksumpath, 'r') as fh:
-                    digest = fh.next()
+                    digest = next(fh)
             except IOError:
                 digest = hashfile(sourcepath, hasher=hash_algorithm)
                 if not no_digest_cache:
