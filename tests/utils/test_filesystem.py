@@ -40,4 +40,4 @@ class TestFilesystem(unittest.TestCase):
                                'a2': ['c', 'd']}, 
                          'B': 'b1',
                          'C': 'c1'}
-        self.assertEqual(merged_dict, expected_dict)
+        self.assertDictEqual(merged_dict, expected_dict)

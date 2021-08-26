@@ -130,7 +130,7 @@ def merge_dicts(mdict, sdict):
         if isinstance(v, dict) and isinstance(mdict.get(k), dict):
             mdict[k] = merge_dicts(mdict[k], v)
         elif isinstance(v, list) and isinstance(mdict.get(k), list):
-            mdict[k] = list(set(mdict[k] + v))
+            mdict[k] = sorted(set(mdict[k] + v))
         else:
             mdict[k] = v
     return mdict
