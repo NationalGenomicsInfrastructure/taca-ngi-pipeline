@@ -8,6 +8,7 @@ import logging
 import six
 
 from collections import defaultdict
+from io import open
 
 
 class xml_generator(object):
@@ -79,10 +80,10 @@ class xml_generator(object):
             #create manifest files for sample_entry
             self._generate_manifest_file(sample_stat['experiment'], sample_stat['run'])
         # wrap in final xml string tags
-        experiment_set = ('<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        experiment_set = (u'<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                           'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.experiment.xsd">'
                           '\n{}\n</EXPERIMENT_SET>\n').format(experiment_xml_string)
-        run_set = ('<RUN_SET  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        run_set = (u'<RUN_SET  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                    'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.run.xsd">'
                    '\n{}\n</RUN_SET>\n').format(run_xml_string)
         # dont save in file if asked to return as string
@@ -95,7 +96,7 @@ class xml_generator(object):
             rxml.write(run_set)
 
     def _generate_manifest_file(self, exp_details, run_details):
-        fcontents =  ('STUDY\t{}\n').format(exp_details['study'])
+        fcontents =  (u'STUDY\t{}\n').format(exp_details['study'])
         fcontents += ('SAMPLE\t{}\n').format(exp_details['discriptor'])
         fcontents += ('NAME\t{}\n').format(exp_details['alias'])
         fcontents += ('INSTRUMENT\t{}\n').format(exp_details['instrument'])

@@ -4,6 +4,7 @@ from glob import iglob
 from logging import getLogger
 from os import path, walk, sep as os_sep
 from taca.utils.misc import hashfile
+from io import open
 
 logger = getLogger(__name__)
 
@@ -44,7 +45,7 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
                 if not no_digest_cache:
                     try:
                         with open(checksumpath, 'w') as fh:
-                            fh.write(digest)
+                            fh.write(digest.decode("utf-8"))
                     except IOError as we:
                         logger.warning("could not write checksum {} to file {}: {}".format(digest, checksumpath, we))
         return sourcepath, destpath, digest

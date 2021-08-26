@@ -1,6 +1,5 @@
 """ Unit tests for the deliver commands """
 
-import six.moves.builtins
 import json
 # noinspection PyPackageRequirements
 import mock
@@ -13,9 +12,11 @@ import unittest
 
 from ngi_pipeline.database import classes as db
 from taca_ngi_pipeline.deliver import deliver
+from taca_ngi_pipeline.utils import filesystem as fs
 from taca.utils.filesystem import create_folder
 from taca.utils.misc import hashfile
 from taca.utils.transfer import SymlinkError, SymlinkAgent
+from io import open
 
 SAMPLECFG = {
     'deliver': {
@@ -214,7 +215,7 @@ class TestDeliverer(unittest.TestCase):
         checksumfile = "{}.{}".format(
             self.deliverer.expand_path(pattern[0]),
             self.deliverer.hash_algorithm)
-        exp_checksum = "this checksum should be cached"
+        exp_checksum = u"this checksum should be cached"
         with open(checksumfile, 'w') as fh:
             fh.write(exp_checksum)
         for _, _, obs_checksum in self.deliverer.gather_files():
@@ -239,7 +240,7 @@ class TestDeliverer(unittest.TestCase):
                 taca_ngi_pipeline.utils.filesystem, 'hashfile', return_value=exp_checksum):
             # ensure that a thrown IOError when writing checksum cache file is handled gracefully
             # mock hashfile's call to open builtin
-            with mock.patch.object(six.moves.builtins, 'open', side_effect=IOError("mocked IOError")) as iomock:
+            with mock.patch.object(fs, 'open', side_effect=IOError("mocked IOError")) as iomock:
                 for spath, _, obs_checksum in self.deliverer.gather_files():
                     checksumfile = "{}.{}".format(
                         spath, self.deliverer.hash_algorithm)
@@ -690,11 +691,11 @@ class TestSampleDeliverer(unittest.TestCase):
                     digest = hashfile(fpath, hasher=self.deliverer.hash_algorithm)
                     if n < 3:
                         expected.append(rpath)
-                        fh.write("{}\n".format(rpath))
-                        dh.write("{}  {}\n".format(digest, rpath))
+                        fh.write(u"{}\n".format(rpath))
+                        dh.write(u"{}  {}\n".format(digest, rpath))
             rpath = os.path.basename(digestfile)
             expected.append(rpath)
-            fh.write("{}\n".format(rpath))
+            fh.write(u"{}\n".format(rpath))
         # transfer the listed content
         destination = self.deliverer.expand_path(self.deliverer.deliverypath)
         create_folder(os.path.dirname(destination))

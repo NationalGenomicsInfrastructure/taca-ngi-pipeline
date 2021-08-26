@@ -3,6 +3,7 @@ import glob
 from setuptools import setup, find_packages
 
 from taca_ngi_pipeline import __version__
+from io import open
 
 try:
     with open("requirements.txt", "r") as f:
