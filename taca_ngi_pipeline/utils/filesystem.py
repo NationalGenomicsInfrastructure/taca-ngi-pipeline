@@ -111,7 +111,7 @@ def parse_hash_file(hfile, last_modified, hash_algorithm="md5", root_path="", fi
     with open(hfile, 'r') as hfl:
         for hl in hfl:
             hl = hl.strip()
-            if files_filter and not any(map(lambda pat: pat in hl, files_filter)):
+            if files_filter and not any([pat in hl for pat in files_filter]):
                 continue
             hval, fnm = hl.split()
             fkey = fnm.split(os_sep)[0] if os_sep in fnm else path.splitext(fnm)[0]

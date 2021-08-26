@@ -263,7 +263,7 @@ class TestDeliverer(unittest.TestCase):
             tpat = list(pattern)
             tpat.append({'no_digest': True})
             self.deliverer.files_to_deliver = [tpat]
-            self.assertTrue(all(map(lambda d: d[2] is None, self.deliverer.gather_files())),
+            self.assertTrue(all([d[2] is None for d in self.deliverer.gather_files()]),
                             "the digest for files with no_digest=True was computed")
 
     def test_gather_files7(self):

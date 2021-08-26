@@ -20,6 +20,7 @@ from ..utils import database as db
 from ..utils import filesystem as fs
 from ..utils import nbis_xml_generator as xmlgen
 from io import open
+from six.moves import map
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ class Deliverer(object):
                 destination path and the checksum of the source file
                 (or None if source is a folder)
         """
-        return fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in self.files_to_deliver],
+        return fs.gather_files([list(map(self.expand_path, file_pattern)) for file_pattern in self.files_to_deliver],
                                no_checksum=self.no_checksum,
                                hash_algorithm=self.hash_algorithm)
 
