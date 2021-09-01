@@ -9,6 +9,11 @@ import six
 
 logger = getLogger(__name__)
 
+# Handle hashfile output in both python versions
+try:
+    unicode
+except NameError:
+    unicode = str
 
 class FileNotFoundException(Exception):
     pass
@@ -40,13 +45,13 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
             checksumpath = "{}.{}".format(sourcepath, hash_algorithm)
             try:
                 with open(checksumpath, 'r') as fh:
-                    digest = next(fh)
+                    digest = unicode(next(fh))
             except IOError:
-                digest = hashfile(sourcepath, hasher=hash_algorithm)
+                digest = unicode(hashfile(sourcepath, hasher=hash_algorithm))
                 if not no_digest_cache:
                     try:
                         with open(checksumpath, 'w') as fh:
-                            fh.write(digest.decode("utf-8"))
+                            fh.write(digest)
                     except IOError as we:
                         logger.warning("could not write checksum {} to file {}: {}".format(digest, checksumpath, we))
         return sourcepath, destpath, digest

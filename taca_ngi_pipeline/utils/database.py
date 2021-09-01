@@ -18,7 +18,7 @@ def _wrap_database_query(query_fn, *query_args, **query_kwargs):
     try:
         return query_fn(*query_args, **query_kwargs)
     except db.CharonError as ce:
-        raise DatabaseError(ce.message)
+        raise DatabaseError(ce)
 
 
 def dbcon():

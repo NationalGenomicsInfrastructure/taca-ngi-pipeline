@@ -161,7 +161,7 @@ class TestDeliverer(unittest.TestCase):
             for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][0]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [p for p, _, _ in self.deliverer.gather_files()],
             expected)
 
@@ -173,7 +173,7 @@ class TestDeliverer(unittest.TestCase):
                 "level1_folder2")) for f in files]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][1]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [p for p, _, _ in self.deliverer.gather_files()],
             expected)
 
@@ -184,9 +184,9 @@ class TestDeliverer(unittest.TestCase):
                     for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][2]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
-            [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([os.path.basename(p) for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files4(self):
         """ Replace the SAMPLE keyword in pattern """
@@ -195,16 +195,16 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][3]
         self.deliverer.files_to_deliver = [pattern]
         self.deliverer.sampleid = "level1"
-        self.assertItemsEqual(
-            [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([os.path.basename(p) for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files5(self):
         """ Do not pick up non-existing file """
         expected = []
         pattern = SAMPLECFG['deliver']['files_to_deliver'][4]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
             expected)
 
@@ -294,9 +294,9 @@ class TestDeliverer(unittest.TestCase):
                          for n in range(self.nfiles)])
         pattern = SAMPLECFG['deliver']['files_to_deliver'][6]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
-            [p for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([p for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files8(self):
         """ Skip checksum files """
@@ -304,7 +304,7 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][7]
         self.deliverer.files_to_deliver = [pattern]
         open(self.deliverer.expand_path(pattern[0]), 'w').close()
-        self.assertItemsEqual(
+        self.assertEqual(
             [obs for obs in self.deliverer.gather_files()],
             expected)
 
@@ -321,7 +321,7 @@ class TestDeliverer(unittest.TestCase):
             spath)
         self.deliverer.files_to_deliver = [pattern]
         observed = [p for p, _, _ in self.deliverer.gather_files()]
-        self.assertItemsEqual(observed, expected)
+        self.assertEqual(observed, expected)
 
     def test_gather_files10(self):
         """ A missing required file should throw an error """
@@ -414,7 +414,7 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][1]
         self.deliverer.files_to_deliver = [pattern]
         self.deliverer.stage_delivery()
-        self.assertItemsEqual(
+        self.assertEqual(
             [os.path.exists(e) for e in expected],
             [True for _ in range(len(expected))])
 
@@ -704,7 +704,7 @@ class TestSampleDeliverer(unittest.TestCase):
         # list the trasferred files relative to the destination
         observed = [os.path.relpath(os.path.join(d, f), destination)
                     for d, _, files in os.walk(destination) for f in files]
-        self.assertItemsEqual(observed, expected)
+        self.assertEqual(sorted(observed), sorted(expected))
 
     def test_acknowledge_sample_delivery(self):
         """ A sample delivery acknowledgement should be written to disk """
