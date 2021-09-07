@@ -1,6 +1,5 @@
 """ Unit tests for the deliver commands """
 
-import __builtin__
 import json
 # noinspection PyPackageRequirements
 import mock
@@ -13,9 +12,12 @@ import unittest
 
 from ngi_pipeline.database import classes as db
 from taca_ngi_pipeline.deliver import deliver
+from taca_ngi_pipeline.utils import filesystem as fs
 from taca.utils.filesystem import create_folder
 from taca.utils.misc import hashfile
 from taca.utils.transfer import SymlinkError, SymlinkAgent
+from io import open
+from six.moves import range
 
 SAMPLECFG = {
     'deliver': {
@@ -101,7 +103,7 @@ class TestDeliverer(unittest.TestCase):
     def create_content(self, parentdir, level=0, folder=0):
         if not os.path.exists(parentdir):
             os.mkdir(parentdir)
-        for nf in xrange(self.nfiles):
+        for nf in range(self.nfiles):
             open(
                 os.path.join(
                     parentdir,
@@ -110,7 +112,7 @@ class TestDeliverer(unittest.TestCase):
         if level == self.nlevels:
             return
         level += 1
-        for nd in xrange(self.nfolders):
+        for nd in range(self.nfolders):
             self.create_content(
                 os.path.join(
                     parentdir,
@@ -156,10 +158,10 @@ class TestDeliverer(unittest.TestCase):
             os.path.join(
                 self.deliverer.expand_path(self.deliverer.analysispath),
                 "level0_folder0_file{}".format(n))
-            for n in xrange(self.nfiles)]
+            for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][0]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [p for p, _, _ in self.deliverer.gather_files()],
             expected)
 
@@ -171,38 +173,38 @@ class TestDeliverer(unittest.TestCase):
                 "level1_folder2")) for f in files]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][1]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [p for p, _, _ in self.deliverer.gather_files()],
             expected)
 
     def test_gather_files3(self):
         """ Gather the files two levels down """
         expected = ["level2_folder{}_file{}".format(m, n)
-                    for m in xrange(self.nfolders)
-                    for n in xrange(self.nfiles)]
+                    for m in range(self.nfolders)
+                    for n in range(self.nfiles)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][2]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
-            [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([os.path.basename(p) for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files4(self):
         """ Replace the SAMPLE keyword in pattern """
         expected = ["level1_folder{}_file0".format(n)
-                    for n in xrange(self.nfolders)]
+                    for n in range(self.nfolders)]
         pattern = SAMPLECFG['deliver']['files_to_deliver'][3]
         self.deliverer.files_to_deliver = [pattern]
         self.deliverer.sampleid = "level1"
-        self.assertItemsEqual(
-            [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([os.path.basename(p) for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files5(self):
         """ Do not pick up non-existing file """
         expected = []
         pattern = SAMPLECFG['deliver']['files_to_deliver'][4]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
+        self.assertEqual(
             [os.path.basename(p) for p, _, _ in self.deliverer.gather_files()],
             expected)
 
@@ -214,7 +216,7 @@ class TestDeliverer(unittest.TestCase):
         checksumfile = "{}.{}".format(
             self.deliverer.expand_path(pattern[0]),
             self.deliverer.hash_algorithm)
-        exp_checksum = "this checksum should be cached"
+        exp_checksum = u"this checksum should be cached"
         with open(checksumfile, 'w') as fh:
             fh.write(exp_checksum)
         for _, _, obs_checksum in self.deliverer.gather_files():
@@ -230,7 +232,7 @@ class TestDeliverer(unittest.TestCase):
             self.assertTrue(os.path.exists(checksumfile),
                             "checksum cache file was not created")
             with open(checksumfile, 'r') as fh:
-                obs_checksum = fh.next()
+                obs_checksum = next(fh)
             self.assertEqual(obs_checksum, exp_checksum,
                              "cached and returned checksums did not match")
             os.unlink(checksumfile)
@@ -239,7 +241,7 @@ class TestDeliverer(unittest.TestCase):
                 taca_ngi_pipeline.utils.filesystem, 'hashfile', return_value=exp_checksum):
             # ensure that a thrown IOError when writing checksum cache file is handled gracefully
             # mock hashfile's call to open builtin
-            with mock.patch.object(__builtin__, 'open', side_effect=IOError("mocked IOError")) as iomock:
+            with mock.patch.object(fs, 'open', side_effect=IOError("mocked IOError")) as iomock:
                 for spath, _, obs_checksum in self.deliverer.gather_files():
                     checksumfile = "{}.{}".format(
                         spath, self.deliverer.hash_algorithm)
@@ -262,7 +264,7 @@ class TestDeliverer(unittest.TestCase):
             tpat = list(pattern)
             tpat.append({'no_digest': True})
             self.deliverer.files_to_deliver = [tpat]
-            self.assertTrue(all(map(lambda d: d[2] is None, self.deliverer.gather_files())),
+            self.assertTrue(all([d[2] is None for d in self.deliverer.gather_files()]),
                             "the digest for files with no_digest=True was computed")
 
     def test_gather_files7(self):
@@ -287,14 +289,14 @@ class TestDeliverer(unittest.TestCase):
             "failed when setting up test")
 
         expected = [os.path.join(dest_path, "level3_folder1_file{}".format(n))
-                    for n in xrange(self.nfiles)]
+                    for n in range(self.nfiles)]
         expected.extend([os.path.join(dest_path, "level3_folder0", "level3_folder0_file{}".format(n))
-                         for n in xrange(self.nfiles)])
+                         for n in range(self.nfiles)])
         pattern = SAMPLECFG['deliver']['files_to_deliver'][6]
         self.deliverer.files_to_deliver = [pattern]
-        self.assertItemsEqual(
-            [p for p, _, _ in self.deliverer.gather_files()],
-            expected)
+        self.assertEqual(
+            sorted([p for p, _, _ in self.deliverer.gather_files()]),
+            sorted(expected))
 
     def test_gather_files8(self):
         """ Skip checksum files """
@@ -302,7 +304,7 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][7]
         self.deliverer.files_to_deliver = [pattern]
         open(self.deliverer.expand_path(pattern[0]), 'w').close()
-        self.assertItemsEqual(
+        self.assertEqual(
             [obs for obs in self.deliverer.gather_files()],
             expected)
 
@@ -319,7 +321,7 @@ class TestDeliverer(unittest.TestCase):
             spath)
         self.deliverer.files_to_deliver = [pattern]
         observed = [p for p, _, _ in self.deliverer.gather_files()]
-        self.assertItemsEqual(observed, expected)
+        self.assertEqual(observed, expected)
 
     def test_gather_files10(self):
         """ A missing required file should throw an error """
@@ -412,9 +414,9 @@ class TestDeliverer(unittest.TestCase):
         pattern = SAMPLECFG['deliver']['files_to_deliver'][1]
         self.deliverer.files_to_deliver = [pattern]
         self.deliverer.stage_delivery()
-        self.assertItemsEqual(
+        self.assertEqual(
             [os.path.exists(e) for e in expected],
-            [True for _ in xrange(len(expected))])
+            [True for _ in range(len(expected))])
 
     def test_expand_path(self):
         """ Paths should expand correctly """
@@ -679,22 +681,22 @@ class TestSampleDeliverer(unittest.TestCase):
         expected = []
         with open(digestfile, 'w') as dh, open(filelist, 'w') as fh:
             curdir = basedir
-            for d in xrange(4):
+            for d in range(4):
                 if d > 0:
                     curdir = os.path.join(curdir, "folder{}".format(d))
                     create_folder(curdir)
-                for n in xrange(5):
+                for n in range(5):
                     fpath = os.path.join(curdir, "file{}".format(n))
                     open(fpath, 'w').close()
                     rpath = os.path.relpath(fpath, basedir)
                     digest = hashfile(fpath, hasher=self.deliverer.hash_algorithm)
                     if n < 3:
                         expected.append(rpath)
-                        fh.write("{}\n".format(rpath))
-                        dh.write("{}  {}\n".format(digest, rpath))
+                        fh.write(u"{}\n".format(rpath))
+                        dh.write(u"{}  {}\n".format(digest, rpath))
             rpath = os.path.basename(digestfile)
             expected.append(rpath)
-            fh.write("{}\n".format(rpath))
+            fh.write(u"{}\n".format(rpath))
         # transfer the listed content
         destination = self.deliverer.expand_path(self.deliverer.deliverypath)
         create_folder(os.path.dirname(destination))
@@ -702,7 +704,7 @@ class TestSampleDeliverer(unittest.TestCase):
         # list the trasferred files relative to the destination
         observed = [os.path.relpath(os.path.join(d, f), destination)
                     for d, _, files in os.walk(destination) for f in files]
-        self.assertItemsEqual(observed, expected)
+        self.assertEqual(sorted(observed), sorted(expected))
 
     def test_acknowledge_sample_delivery(self):
         """ A sample delivery acknowledgement should be written to disk """

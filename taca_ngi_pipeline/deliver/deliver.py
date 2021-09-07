@@ -19,6 +19,8 @@ from taca.utils import transfer
 from ..utils import database as db
 from ..utils import filesystem as fs
 from ..utils import nbis_xml_generator as xmlgen
+from io import open
+from six.moves import map
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +119,7 @@ class Deliverer(object):
                     self.sampleid or self.projectid)))
             create_folder(os.path.dirname(ackfile))
             with open(ackfile, 'w') as fh:
-                fh.write("{}\n".format(tstamp))
+                fh.write(u"{}\n".format(tstamp))
         except (AttributeError, IOError) as e:
             logger.warning(
                 "could not write delivery acknowledgement, reason: {}".format(
@@ -179,7 +181,7 @@ class Deliverer(object):
                 destination path and the checksum of the source file
                 (or None if source is a folder)
         """
-        return fs.gather_files([map(self.expand_path, file_pattern) for file_pattern in self.files_to_deliver],
+        return fs.gather_files([list(map(self.expand_path, file_pattern)) for file_pattern in self.files_to_deliver],
                                no_checksum=self.no_checksum,
                                hash_algorithm=self.hash_algorithm)
 
@@ -208,11 +210,11 @@ class Deliverer(object):
                                        "delivering {} - reason: {}".format(src, str(self), e))
 
                     fpath = os.path.relpath(dst, self.expand_path(self.stagingpath))
-                    fh.write("{}\n".format(fpath))
+                    fh.write(u"{}\n".format(fpath))
                     if digest is not None:
-                        dh.write("{}  {}\n".format(digest, fpath))
+                        dh.write(u"{}  {}\n".format(digest, fpath))
                 # finally, include the digestfile in the list of files to deliver
-                fh.write("{}\n".format(os.path.basename(digestpath)))
+                fh.write(u"{}\n".format(os.path.basename(digestpath)))
         except (IOError, fs.FileNotFoundException, fs.PatternNotMatchedException) as e:
             raise DelivererError(
                 "failed to stage delivery - reason: {}".format(e))

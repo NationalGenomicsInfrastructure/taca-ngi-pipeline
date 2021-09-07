@@ -5,9 +5,10 @@ import couchdb
 import os
 import re
 import logging
+import six
 
 from collections import defaultdict
-from past.builtins import basestring
+from io import open
 
 
 class xml_generator(object):
@@ -79,10 +80,10 @@ class xml_generator(object):
             #create manifest files for sample_entry
             self._generate_manifest_file(sample_stat['experiment'], sample_stat['run'])
         # wrap in final xml string tags
-        experiment_set = ('<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        experiment_set = (u'<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                           'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.experiment.xsd">'
                           '\n{}\n</EXPERIMENT_SET>\n').format(experiment_xml_string)
-        run_set = ('<RUN_SET  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        run_set = (u'<RUN_SET  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                    'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.run.xsd">'
                    '\n{}\n</RUN_SET>\n').format(run_xml_string)
         # dont save in file if asked to return as string
@@ -95,7 +96,7 @@ class xml_generator(object):
             rxml.write(run_set)
 
     def _generate_manifest_file(self, exp_details, run_details):
-        fcontents =  ('STUDY\t{}\n').format(exp_details['study'])
+        fcontents =  (u'STUDY\t{}\n').format(exp_details['study'])
         fcontents += ('SAMPLE\t{}\n').format(exp_details['discriptor'])
         fcontents += ('NAME\t{}\n').format(exp_details['alias'])
         fcontents += ('INSTRUMENT\t{}\n').format(exp_details['instrument'])
@@ -146,7 +147,7 @@ class xml_generator(object):
         """ Go through the flowcells and collect needed informations """
         self.sample_aggregated_stat = defaultdict(dict)
         # try to get instrument type and samples sequenced
-        for fc, fc_info in self.flowcells.iteritems():
+        for fc, fc_info in six.iteritems(self.flowcells):
             fc_obj = self.xcon.get_entry(fc_info['run_name']) if fc_info['db'] == 'x_flowcells' else self.fcon.get_entry(fc_info['run_name'])
             if not fc_obj:
                 self.LOG.warn("Could not fetch flowcell {} from {} db, will remove it from list".format(fc_info['run_name'], fc_info['db']))
@@ -174,7 +175,7 @@ class xml_generator(object):
                     if not self.ignore_lib_prep:
                         try:
                             sample_preps_fcs = self.sample_prep_fc_map.get(lane_sample)
-                            prep_id_list = [pid for pid, seqruns in sample_preps_fcs.iteritems() if full_run_id in seqruns]
+                            prep_id_list = [pid for pid, seqruns in six.iteritems(sample_preps_fcs) if full_run_id in seqruns]
                             assert len(prep_id_list) == 1
                             prep_id = prep_id_list[0]
                         except AssertionError:
@@ -265,7 +266,7 @@ class xml_generator(object):
     def _generate_files_block(self, files, flowcells=None):
         """ Take a 'files' dict and give xml block string to include in final xml """
         file_block = ""
-        for fl, fl_stat in files.iteritems():
+        for fl, fl_stat in six.iteritems(files):
             # collect only fastq files
             if not fl.endswith('fastq.gz'):
                 continue
@@ -278,7 +279,7 @@ class xml_generator(object):
 
     def _check_and_load_project(self, project):
         """ Get the project document from couchDB if it is not """
-        if isinstance(project, basestring):
+        if isinstance(project, six.string_types):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
             project = self.pcon.get_entry(project, use_id_view=True)
         self.project = project
@@ -301,7 +302,7 @@ class xml_generator(object):
         if not self.ignore_lib_prep:
             for sample in self.samples_delivered.keys():
                 sample_preps = self.project.get("samples", {}).get(sample, {}).get("library_prep", {})
-                for prep, prep_info in sample_preps.iteritems():
+                for prep, prep_info in six.iteritems(sample_preps):
                     self.sample_prep_fc_map[sample][prep] = prep_info.get("sequenced_fc", [])
 
 

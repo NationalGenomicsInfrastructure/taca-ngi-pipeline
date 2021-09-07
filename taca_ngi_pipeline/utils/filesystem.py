@@ -4,9 +4,16 @@ from glob import iglob
 from logging import getLogger
 from os import path, walk, sep as os_sep
 from taca.utils.misc import hashfile
+from io import open
+import six
 
 logger = getLogger(__name__)
 
+# Handle hashfile output in both python versions
+try:
+    unicode
+except NameError:
+    unicode = str
 
 class FileNotFoundException(Exception):
     pass
@@ -38,9 +45,9 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
             checksumpath = "{}.{}".format(sourcepath, hash_algorithm)
             try:
                 with open(checksumpath, 'r') as fh:
-                    digest = fh.next()
+                    digest = unicode(next(fh))
             except IOError:
-                digest = hashfile(sourcepath, hasher=hash_algorithm)
+                digest = unicode(hashfile(sourcepath, hasher=hash_algorithm))
                 if not no_digest_cache:
                     try:
                         with open(checksumpath, 'w') as fh:
@@ -109,7 +116,7 @@ def parse_hash_file(hfile, last_modified, hash_algorithm="md5", root_path="", fi
     with open(hfile, 'r') as hfl:
         for hl in hfl:
             hl = hl.strip()
-            if files_filter and not any(map(lambda pat: pat in hl, files_filter)):
+            if files_filter and not any([pat in hl for pat in files_filter]):
                 continue
             hval, fnm = hl.split()
             fkey = fnm.split(os_sep)[0] if os_sep in fnm else path.splitext(fnm)[0]
@@ -124,11 +131,11 @@ def merge_dicts(mdict, sdict):
     """Merge the 2 given dictioneries, if a key already exists it is
        replaced/updated with new values depending upon data types
     """
-    for k, v in sdict.iteritems():
+    for k, v in six.iteritems(sdict):
         if isinstance(v, dict) and isinstance(mdict.get(k), dict):
             mdict[k] = merge_dicts(mdict[k], v)
         elif isinstance(v, list) and isinstance(mdict.get(k), list):
-            mdict[k] = list(set(mdict[k] + v))
+            mdict[k] = sorted(set(mdict[k] + v))
         else:
             mdict[k] = v
     return mdict

@@ -5,8 +5,8 @@ import logging
 
 from taca.utils.misc import send_mail
 from taca.utils.config import load_yaml_config
-from deliver import deliver as _deliver
-from deliver import deliver_grus as _deliver_grus
+from .deliver import deliver as _deliver
+from .deliver import deliver_grus as _deliver_grus
 
 logger = logging.getLogger(__name__)
 
