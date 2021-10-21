@@ -41,7 +41,7 @@ def proceed_or_not(question):
 
 def check_mover_version():
     cmd = ['moverinfo', '--version']
-    output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
     m = re.search('.* version (\d\.\d\.\d)', output)
     if not m:
         logger.error("Probelm tring to idenitify mover version. Failed!")
@@ -122,7 +122,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         while ( not not_monitoring ):
             try:
                 cmd = ['moverinfo', '-i', delivery_token]
-                output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
             except Exception as e:
                 logger.error('Cannot get the delivery status for project {}'.format(self.projectid))
                 # write Traceback to the log file
@@ -453,7 +453,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             return "manually-set-up"
 
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
         except subprocess.CalledProcessError as e:
             logger.error('to_outbox failed while delivering {} to {}'.format(hard_stage, supr_name_of_delivery))
             logger.exception(e)
