@@ -51,7 +51,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             sampleid,
             **kwargs
         )
-        self.stagingpathhard = getattr(self, 'stagingpathhard', None)
+        self.stagingpathhard = getattr(self, 'stagingpathhard', None) #TODO: this would be `dds put`
         if self.stagingpathhard is None:
             raise AttributeError("stagingpathhard is required when delivering with DDS")
         #self.config_snic = CONFIG.get('snic', None)
@@ -184,7 +184,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         any sample was not properly delivered or ready to be delivered
         """
         soft_stagepath = self.expand_path(self.stagingpath)
-        hard_stagepath = self.expand_path(self.stagingpathhard)
+        hard_stagepath = self.expand_path(self.stagingpathhard) #TODO: Still needed?
         if os.path.exists(hard_stagepath):
             logger.error("In {} found already folder {}. Multiple deliveries are not allowed".format(
                     hard_stagepath, self.projectid))
@@ -321,7 +321,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """ Hard stage run folder and initiate delivery.
         """
         # Stage the data
-        dst = self.expand_path(self.stagingpathhard)
+        dst = self.expand_path(self.stagingpathhard) #TODO: still needed?
         path_to_data = self.expand_path(self.datapath)
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
