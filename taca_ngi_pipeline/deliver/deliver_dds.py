@@ -1,5 +1,5 @@
 """
-    Module for controlling deliveries os samples and projects to GRUS
+    Module for controlling deliveries os samples and projects to DDS
 """
 import glob
 import time
@@ -43,29 +43,21 @@ class DDSProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples with DDS.
     """
     def __init__(self, projectid=None, sampleid=None, 
-                 pi_email=None, sensitive=True,  #TODO: is sensitivity level needed?
-                 hard_stage_only=False, add_user=None,
-                 fcid=None, **kwargs):
+                 pi_email=None, sensitive=True,
+                 add_user=None, fcid=None, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
             **kwargs
         )
-        self.stagingpathhard = getattr(self, 'stagingpathhard', None) #TODO: this would be `dds put`
-        if self.stagingpathhard is None:
-            raise AttributeError("stagingpathhard is required when delivering with DDS")
-        #self.config_snic = CONFIG.get('snic', None)
-        #if self.config_snic is None:
-        #    raise AttributeError("snic confoguration is needed  delivering to GRUS (snic_api_url, snic_api_user, snic_api_password")
         self.config_statusdb = CONFIG.get('statusdb', None)
         if self.config_statusdb is None:
-            raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password, port")
-        self.orderportal = CONFIG.get('order_portal', None) # do not need to raise exception here, I have already checked for this and monitoring does not need it
+            raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password, port")
+        self.orderportal = CONFIG.get('order_portal', None)
         if self.orderportal:
-            self._set_pi_details(pi_email) # set PI email and SNIC id
-            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) # set SNIC id for other project members
-        self.sensitive = sensitive  #TODO: still needed?
-        self.hard_stage_only = hard_stage_only
+            self._set_pi_details(pi_email)
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+        self.sensitive = sensitive
         self.fcid = fcid
 
     def get_delivery_status(self, dbentry=None):
@@ -326,7 +318,6 @@ class DDSProjectDeliverer(ProjectDeliverer):
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
         
-        #TODO: still needed?
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
         if not self.sensitive:
             question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
@@ -493,36 +484,31 @@ class DDSProjectDeliverer(ProjectDeliverer):
         result = json.loads(response.content)
         return result
 
-    def _set_pi_details(self, given_pi_email=None): #TODO: still needed?
+    def _set_pi_details(self, given_pi_email=None):
         """
-            Set PI email address and PI SNIC ID using PI email
+            Set PI email address and PI name using PI email
         """
-        self.pi_email, self.pi_snic_id = (None, None)
+        self.pi_email, self.pi_name = (None, None)
         # try getting PI email
         if given_pi_email:
             logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
             self.pi_email = given_pi_email
         else:
             try:
-                self.pi_email = self._get_order_detail()['fields']['project_pi_email']
+                prj_order = self._get_order_detail()
+                self.pi_email = prj_order['fields']['project_pi_email']
+                self.pi_name = prj_order['fields']['project_pi_name']
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
             except Exception as e:
-                logger.error("Cannot fetch pi_email from StatusDB. Error says: {}".format(str(e)))
+                logger.error("Cannot fetch pi_email and/or name from StatusDB. Error says: {}".format(str(e)))
                 raise e
-        # try getting PI SNIC ID
-        try:
-            self.pi_snic_id = self._get_user_snic_id(self.pi_email)
-            logger.info("SNIC PI-id for delivering of project {} is {}".format(self.projectid, self.pi_snic_id))
-        except Exception as e:
-            logger.error("Cannot fetch PI SNIC id using snic API. Error says: {}".format(str(e)))
-            raise e
 
-    def _set_other_member_details(self, other_member_emails=[], include_owner=False): #TODO: still needed?
+    def _set_other_member_details(self, other_member_emails=[], include_owner=False):
         """
             Set other contact details if avilable, this is not mandatory so
             the method will not raise error if it could not find any contact
         """
-        self.other_member_snic_ids = []
+        self.other_member_details = []
         # try getting appropriate contact emails
         try:
             prj_order = self._get_order_detail()
@@ -537,30 +523,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             pass # nothing to worry, just move on
         if other_member_emails:
             logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
-        # try getting snic id for other emails if any
-        for uemail in other_member_emails:
-            try:
-                self.other_member_snic_ids.append(self._get_user_snic_id(uemail))
-            except:
-                logger.warning("Was not able to get SNIC id for email {}, so that user will not be included in the GRUS project".format(uemail))
-
-    def _get_user_snic_id(self, uemail): #TODO: probably not needed
-        user = self.config_snic.get('snic_api_user')
-        password = self.config_snic.get('snic_api_password')
-        get_user_url = '{}/person/search/'.format(self.config_snic.get('snic_api_url'))
-        params   = {'email_i': uemail}
-        response = requests.get(get_user_url, params=params, auth=(user, password))
-        if response.status_code != 200:
-            raise AssertionError("Unexpected code returned when trying to get SNIC id for email: {}. Response was: {}".format(uemail, response.content))
-        result = json.loads(response.content)
-        matches = result.get("matches")
-        if matches is None:
-            raise AssertionError('The response returned unexpected data')
-        if len(matches) < 1:
-            raise AssertionError("There was no hit in SUPR for email: {}".format(uemail))
-        if len(matches) > 1:
-            raise AssertionError("There were more than one hit in SUPR for email: {}".format(uemail))
-        return matches[0].get("id")
+            self.other_member_details = other_member_emails
 
     def _get_order_detail(self):
         status_db = StatusdbSession(self.config_statusdb)

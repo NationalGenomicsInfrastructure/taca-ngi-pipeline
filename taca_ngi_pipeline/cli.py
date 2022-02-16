@@ -132,8 +132,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             d = _deliver_dds.DDSProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
-                sensitive=sensitive, #TODO: still used?
-                hard_stage_only=hard_stage_only,
+                sensitive=sensitive,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
                 **ctx.parent.params)
@@ -144,7 +143,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
         else:
             _exec_fn(d, d.deliver_project)
 
-# sample delivery #TODO: Do we want DDS sample delivery?
+# sample delivery
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING, nargs=1)
