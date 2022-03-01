@@ -1,7 +1,6 @@
 """
     Module for controlling deliveries os samples and projects to DDS
 """
-import glob
 import time
 import requests
 import datetime
@@ -10,12 +9,12 @@ import logging
 import json
 import subprocess
 import sys
-import re
 import shutil
+import re
 from dateutil.relativedelta import relativedelta
 
 from ngi_pipeline.database.classes import CharonSession
-from taca.utils.filesystem import do_copy, create_folder
+from taca.utils.filesystem import create_folder
 from taca.utils.config import CONFIG
 from taca.utils.statusdb import StatusdbSession, ProjectSummaryConnection
 
@@ -44,22 +43,23 @@ class DDSProjectDeliverer(ProjectDeliverer):
     """
     def __init__(self, projectid=None, sampleid=None, 
                  pi_email=None, sensitive=True,
-                 add_user=None, fcid=None, **kwargs):
+                 add_user=None, fcid=None, do_release=False, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
             **kwargs
         )
         self.config_statusdb = CONFIG.get('statusdb', None)
-        if self.config_statusdb is None:
+        if self.config_statusdb is None and not do_release:
             raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal', None)
         if self.orderportal:
             self._set_pi_details(pi_email)
             self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+            self._set_project_details()
         self.sensitive = sensitive
         self.fcid = fcid
-
+        
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this project. If a dbentry
         dict is supplied, it will be used instead of fethcing from database
@@ -68,100 +68,61 @@ class DDSProjectDeliverer(ProjectDeliverer):
         fetching from db
         :returns: the delivery status of this project as a string
         """
+        #TODO: maybe use the dds delivery status here, instead of a token, would that be useful?
         dbentry = dbentry or self.db_entry()
         if dbentry.get('delivery_token'):
             if dbentry.get('delivery_token') not in ['NO-TOKEN', 'not_under_delivery'] :
                 return 'IN_PROGRESS'  # At least some samples are under delivery
-        if  dbentry.get('delivery_status'):
+        if dbentry.get('delivery_status'):
             if dbentry.get('delivery_status') == 'DELIVERED':
                 return 'DELIVERED'  # The project has been marked as delivered
         if dbentry.get('delivery_projects'):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def check_DDS_delivery_status(self): #TODO: modify to work with DDS instead of mover
-        """ Checks if project is under delivery. If so it waits until 
-        projects is delivered or a certain threshold is met.
+    def release_DDS_delivery_project(self): 
+        """ Update charon when data upload is finished and release DDS project to user.
         """
+        #TODO: modify to update charon and release the delivery project to user
         charon_status = self.get_delivery_status()
         # we don't care if delivery is not in progress
         if charon_status != 'IN_PROGRESS':
             logger.info("Project {} has no delivery token. Project is not being delivered at the moment".format(self.projectid))
             return
-        # if it's 'IN_PROGRESS', checking moverinfo
-        delivery_token = self.db_entry().get('delivery_token')
-        logger.info("Project {} under delivery. Delivery token is {}. Starting monitoring:".format(self.projectid, delivery_token))
+        dds_delivery_project = self.db_entry().get('delivery_projects')  #TODO: multiple deliveries possible. Add a check for this and an option to specify which delivery to release
+        dds_delivery_status = self.db_entry().get('delivery_token')
+        logger.info("Project {} (DDS project {}) delivery status is {}.".format(self.projectid, dds_delivery_project, dds_delivery_status))
+        #TODO: Add a question to user "Do you want to proceed with the release?" Possibly list samples that have been uploaded and the total nr of samples
         delivery_status = 'IN_PROGRESS'
-        not_monitoring = False
-        max_delivery_time = relativedelta(days=7)
-        monitoring_start = datetime.datetime.now()
-        while ( not not_monitoring ):
-            try:
-                cmd = ['moverinfo', '-i', delivery_token]
-                output=subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except Exception as e:
-                logger.error('Cannot get the delivery status for project {}'.format(self.projectid))
-                # write Traceback to the log file
-                logger.exception(e)
-                # we do not raise, but exit(1). Traceback will be written to log.
-                exit(1)
-            else:
-                #Moverinfo output with option -i can be: InProgress, Accepted, Failed,
-                mover_status = output.split(':')[0]
-                if mover_status == 'Delivered':
-                    # check the filesystem anyway
-                    if os.path.exists(self.expand_path(self.stagingpathhard)):
-                        logger.error('Delivery {} for project {} delivered done but project folder found in DELIVERY_HARD. Failing delivery.'.format(delivery_token, self.projectid))
-                        delivery_status =  'FAILED'
-                    else:
-                        logger.info("Project {} succefully delivered. Delivery token is {}.".format(self.projectid, delivery_token))
-                        delivery_status = 'DELIVERED'
-                    not_monitoring = True #stop the monitoring, it is either failed or delivered
-                    continue
-                else:
-                    #check for how long time delivery has been going on
-                    if self.db_entry().get('delivery_started'):
-                        delivery_started = self.db_entry().get('delivery_started')
-                    else:
-                        delivery_started = monitoring_start #the first time I checked the status, not necessarly when it begun
-                    now = datetime.datetime.now()
-                    if now -  max_delivery_time > delivery_started:
-                        logger.error('Delivery {} for project {} has been ongoing for more than 48 hours. Check what the f**k is going on. The project status will be reset'.format(delivery_token, self.projectid))
-                        delivery_status = 'FAILED'
-                        not_monitoring = True #stop the monitoring, it is taking too long
-                        continue
-                if  mover_status == 'Accepted':
-                    logger.info("Project {} under delivery. Status for delivery-token {} is : {}".format(self.projectid, delivery_token, mover_status))
-                elif mover_status == 'Failed':
-                    logger.warn("Project {} under delivery (attention mover returned {}). Status for delivery-token {} is : {}".format(self.projectid, mover_status, delivery_token, mover_status))
-                elif mover_status == 'InProgress':
-                    #this is an error because it is a new status
-                    logger.info("Project {} under delivery. Status for delivery-token {} is : {}".format(self.projectid, delivery_token, mover_status))
-                else:
-                    logger.warn("Project {} under delivery. Unexpected status-delivery returned by mover for delivery-token {}: {}".format(self.projectid, delivery_token, mover_status))
-            time.sleep(900) #sleep for 15 minutes and then check again the status
-        #I am here only if not_monitoring is True, that is only if mover status was delivered or the delivery is ongoing for more than 48h
+        try:
+            cmd = ['dds', 'project', 'status', 'release', '--project', dds_delivery_project]
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_delivery_project))
+            delivery_status = 'DELIVERED'
+        except Exception as e:
+            logger.error('Cannot release project {}, and error occurred: {}'.format(self.projectid, e))
+            delivery_status = 'FAILED'
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
             #fetch all samples that were under delivery
             in_progress_samples = self.get_samples_from_charon(delivery_status="IN_PROGRESS")
             # now update them
             for sample_id in in_progress_samples:
                 try:
-                    sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
+                    sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.update_delivery_status(status=delivery_status)
                 except Exception as e:
                     logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
                     logger.exception(e)
-            #now reset delivery
+            # Reset delivery in charon
             self.delete_delivery_token_in_charon()
-            #now check, if all samples in charon are DELIVERED or are ABORTED as status, then the all projecct is DELIVERED
+            # If all samples in charon are DELIVERED or ABORTED, then the whole project is DELIVERED
             all_samples_delivered = True
             for sample_id in self.get_samples_from_charon(delivery_status=None):
                 try:
-                    sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
+                    sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     if sample_deliverer.get_sample_status() == 'ABORTED':
                         continue
-                    if sample_deliverer.get_delivery_status() != 'DELIVERED':
+                    if sample_deliverer.get_delivery_status() != 'DELIVERED':  #TODO: check this logic
                         all_samples_delivered = False
                 except Exception as e:
                     logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
@@ -176,12 +137,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         any sample was not properly delivered or ready to be delivered
         """
         soft_stagepath = self.expand_path(self.stagingpath)
-        hard_stagepath = self.expand_path(self.stagingpathhard) #TODO: Still needed?
-        if os.path.exists(hard_stagepath):
-            logger.error("In {} found already folder {}. Multiple deliveries are not allowed".format(
-                    hard_stagepath, self.projectid))
-            raise DelivererInterruptedError("Hard Staged Folder already present")
-        
+
         if self.get_delivery_status() == 'DELIVERED' \
                 and not self.force:
             logger.info("{} has already been delivered. This project will not be delivered again this time.".format(str(self)))
@@ -200,7 +156,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.error("{} has already been partially delivered. User decided to not proceed.".format(str(self)))
                 return False
         
-        # Check if the sensitive flag has been set in the correct way #TODO: still needed?
+        # Check if the sensitive flag has been set in the correct way
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
         if not self.sensitive:
             question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
@@ -224,96 +180,73 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.warning('No staged samples found in Charon')
             raise AssertionError('No staged samples found in Charon')
 
-        # Collect other files (not samples) if any to include in the hard staging
+        # Collect other files (not samples) if any
         misc_to_deliver = [itm for itm in os.listdir(soft_stagepath) if os.path.splitext(itm)[0] not in samples_to_deliver]
 
         question = "\nProject stagepath: {}\nSamples: {}\nMiscellaneous: {}\n\nProceed with delivery ? "
         question = question.format(soft_stagepath, ", ".join(samples_to_deliver), ", ".join(misc_to_deliver))
         if proceed_or_not(question):
             logger.info("Proceeding with delivery of {}".format(str(self)))
-            # Lock the delivery by creating the folder
-            create_folder(hard_stagepath)
         else:
-            logger.error("Aborting delivery for {}, remove unwanted files and try again".format(str(self)))
+            logger.error("Aborting delivery for {}, remove/add files as required and try again".format(str(self)))
             return False
 
-        hard_staged_samples = []
+        # create a delivery project id 
+        dds_name_of_delivery = ''
+        try:
+            dds_name_of_delivery = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
+        except Exception as e: #TODO: where to catch errors?
+            logger.error('Cannot create delivery project. Error says: {}'.format(e))
+            logger.exception(e)
+
+        # Update delivery status in Charon
+        samples_in_progress = []
         for sample_id in samples_to_deliver:
             try:
                 sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
-                sample_deliverer.deliver_sample()
+                sample_deliverer.update_sample_status() #TODO: note -- don't upload per sample, instead deliver whole folder
             except Exception as e:
-                logger.error('Sample {} has not been hard staged. Error says: {}'.format(sample_id, e))
+                logger.error('Sample {} has not been staged. Error says: {}'.format(sample_id, e)) #TODO: make these messages more accurate
                 logger.exception(e)
                 raise e
             else:
-                hard_staged_samples.append(sample_id)
-        if len(samples_to_deliver) != len(hard_staged_samples):
+                samples_in_progress.append(sample_id)
+        if len(samples_to_deliver) != len(samples_in_progress):
             # Something unexpected happend, terminate
-            logger.warning('Not all the samples have been hard staged. Terminating')
-            raise AssertionError('len(samples_to_deliver) != len(hard_staged_samples): {} != {}'.format(len(samples_to_deliver),
-                                                                                                        len(hard_staged_samples)))
+            logger.warning('Not all the samples have been staged. Terminating')
+            raise AssertionError('len(samples_to_deliver) != len(samples_in_progress): {} != {}'.format(len(samples_to_deliver),
+                                                                                                        len(samples_in_progress)))
 
-        hard_staged_misc = []
-        for itm in misc_to_deliver:
-            src_misc = os.path.join(soft_stagepath, itm)
-            dst_misc = os.path.join(hard_stagepath, itm)
-            try:
-                if os.path.isdir(src_misc):
-                    shutil.copytree(src_misc, dst_misc)
-                else:
-                    shutil.copy(src_misc, dst_misc)
-                hard_staged_misc.append(itm)
-            except Exception as e:
-                logger.error('Miscellaneous file {} has not been hard staged for project {}. Error says: {}'.format(itm, self.projectid, e))
-                logger.exception(e)
-                raise e
-        if len(misc_to_deliver) != len(hard_staged_misc):
-            # Something unexpected happend, terminate
-            logger.warning('Not all the Miscellaneous files have been hard staged for project {}. Terminating'.format(self.projectid))
-            raise AssertionError('len(misc_to_deliver) != len(hard_staged_misc): {} != {}'.format(len(misc_to_deliver),
-                                                                                                  len(hard_staged_misc)))
-
-        """#TODO: rewrite for DDS
-        # create a delivery project id 
-        supr_name_of_delivery = ''
-        try:
-            delivery_project_info = self._create_delivery_project()
-            supr_name_of_delivery = delivery_project_info['name']
-            logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, supr_name_of_delivery))
-        except Exception as e:
-            logger.error('Cannot create delivery project. Error says: {}'.format(e))
-            logger.exception(e)
-        delivery_token = self.do_delivery(supr_name_of_delivery) # instead of to_outbox
-        #at this point I have delivery_token and supr_name_of_delivery so I need to update the project fields and the samples fields
-        if delivery_token:
-            #memorise the delivery token used to check if project is under delivery
-            self.save_delivery_token_in_charon(delivery_token)
-            #memorise the delivery project so I know each NGi project to how many delivery projects it has been sent
-            self.add_supr_name_delivery_in_charon(supr_name_of_delivery)
-            self.add_supr_name_delivery_in_statusdb(supr_name_of_delivery)
-            logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
-                                                                                    supr_name_of_delivery,
-                                                                                    delivery_token))
+        delivery_status = self.do_delivery(dds_name_of_delivery)
+        # Update project and samples fields in charon
+        if delivery_status:
+            self.save_delivery_token_in_charon(delivery_status)
+            # Save all delivery projects in charon
+            self.add_dds_name_delivery_in_charon(dds_name_of_delivery)
+            self.add_dds_name_delivery_in_statusdb(dds_name_of_delivery)
+            logger.info("Delivery status for project {}, delivery project {} is {}".format(self.projectid,
+                                                                                    dds_name_of_delivery,
+                                                                                    delivery_status))
             for sample_id in samples_to_deliver:
                 try:
-                    sample_deliverer = GrusSampleDeliverer(self.projectid, sample_id)
-                    sample_deliverer.save_delivery_token_in_charon(delivery_token)
-                    sample_deliverer.add_supr_name_delivery_in_charon(supr_name_of_delivery)
+                    sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
+                    sample_deliverer.save_delivery_token_in_charon(delivery_status)
+                    sample_deliverer.add_dds_name_delivery_in_charon(dds_name_of_delivery)
                 except Exception as e:
                     logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
                     logger.exception(e)
         else:
             logger.error('Delivery project for project {} has not been created'.format(self.projectid))
             status = False
-        """
+
         return status
 
     def deliver_run_folder(self):
         """ Hard stage run folder and initiate delivery.
         """
         # Stage the data
-        dst = self.expand_path(self.stagingpathhard) #TODO: still needed?
+        dst = self.expand_path(self.stagingpath) #TODO: possibly change this in config to avoid conflicts in DELIVERY
         path_to_data = self.expand_path(self.datapath)
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
@@ -331,24 +264,22 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         create_folder(dst)
         try:
-            shutil.copy(runfolder_archive, dst)
+            shutil.copy(runfolder_archive, dst) #TODO: symlink instead?
             shutil.copy(runfolder_md5file, dst)
             logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError as e:
             logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
 
-        """TODO: rewrite for DDS
         delivery_id = ''
         try:
-            delivery_project_info = self._create_delivery_project()
-            delivery_id = delivery_project_info['name']
-            logger.info("Delivery project for project {} has been created. Delivery IDis {}".format(self.projectid, delivery_id))
-        except Exception as e:
+            delivery_id = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, delivery_id))
+        except Exception as e: #TODO: where to catch errors?
             logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
 
-        #invoke mover
-        delivery_token = self.do_delivery(delivery_id)
+        # Upload with DDS
+        delivery_token = self.do_delivery(delivery_id) #TODO: DDS token?
 
         if delivery_token:
             logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
@@ -357,7 +288,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         else:
             logger.error('Delivery project for project {} has not been created'.format(self.projectid))
             status = False
-        """
+        #TODO: Update charon with status, delivery project and token etc?
         return status
 
 
@@ -373,7 +304,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token='NO-TOKEN')
 
-    def add_supr_name_delivery_in_charon(self, supr_name_of_delivery): #TODO: rewrite for DDS
+    def add_dds_name_delivery_in_charon(self, name_of_delivery):
         """Updates delivery_projects in Charon at project level
         """
         charon_session = CharonSession()
@@ -381,17 +312,17 @@ class DDSProjectDeliverer(ProjectDeliverer):
             #fetch the project
             project_charon = charon_session.project_get(self.projectid)
             delivery_projects = project_charon['delivery_projects']
-            if supr_name_of_delivery not in delivery_projects:
-                delivery_projects.append(supr_name_of_delivery)
+            if name_of_delivery not in delivery_projects:
+                delivery_projects.append(name_of_delivery)
                 charon_session.project_update(self.projectid, delivery_projects=delivery_projects)
-                logger.info('Charon delivery_projects for project {} updated with value {}'.format(self.projectid, supr_name_of_delivery))
+                logger.info('Charon delivery_projects for project {} updated with value {}'.format(self.projectid, name_of_delivery))
             else:
-                logger.warn('Charon delivery_projects for project {} not updated with value {} because the value was already present'.format(self.projectid, supr_name_of_delivery))
+                logger.warn('Charon delivery_projects for project {} not updated with value {} because the value was already present'.format(self.projectid, name_of_delivery))
         except Exception as e:
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
-    def add_supr_name_delivery_in_statusdb(self, supr_name_of_delivery): #TODO: rewrite for DDS
+    def add_dds_name_delivery_in_statusdb(self, name_of_delivery):
         """Updates delivery_projects in StatusDB at project level
         """
         save_meta_info = getattr(self, 'save_meta_info', False)
@@ -399,45 +330,36 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return
         status_db = ProjectSummaryConnection(self.config_statusdb)
         project_page = status_db.get_entry(self.projectid, use_id_view=True)
-        dprojs = []
+        delivery_projects = []
         if 'delivery_projects' in project_page:
-            dprojs = project_page['delivery_projects']
+            delivery_projects = project_page['delivery_projects']
 
-        dprojs.append(supr_name_of_delivery)
+        delivery_projects.append(name_of_delivery)
 
-        project_page['delivery_projects'] = dprojs
+        project_page['delivery_projects'] = delivery_projects
         try:
             status_db.save_db_doc(project_page)
-            logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, supr_name_of_delivery))
+            logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, name_of_delivery))
         except Exception as e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
-    def do_delivery(self, supr_name_of_delivery): #TODO: DDS delivey project name?
-        """Change group of staged files and run DDS delivery command
+    def do_delivery(self, name_of_delivery):
+        """Upload staged sample data with DDS
+        #TODO: decide if we want to upload the whole staging dir at once or provide a list of files
         """
-        hard_stage = self.expand_path(self.stagingpathhard)
-        #need to change group to all files #TODO: still needed?
-        os.chown(hard_stage, -1, 47537)
-        for root, dirs, files in os.walk(hard_stage):
-            for dir in dirs:
-                dir_path = os.path.join(root, dir)
-                os.chown(dir_path, -1, 47537) #gr_id is the one of ngi2016003
-            for file in files:
-                fname = os.path.join(root, file)
-                os.chown(fname, -1, 47537)
-        cmd = ['to_outbox', hard_stage, supr_name_of_delivery] #TODO: DDS delivery command goes here
-        if self.hard_stage_only:
-            logger.warning("DDS delivery command not executed, only hard-staging done. Do what you need to do and then run: {}".format(" ".join(cmd)))
-            return "manually-set-up"
-
+        stage_folder = self.expand_path(self.stagingpath)
+        cmd = ['dds', 'data', 'put', 
+               '--project', name_of_delivery, 
+               '--source', stage_folder]
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8') #TODO: change this to run detached, or look for "Upload completed!"?
         except subprocess.CalledProcessError as e:
-            logger.error('DDS delivery command failed while delivering {} to {}'.format(hard_stage, supr_name_of_delivery))
+            logger.error('DDS upload failed while uploading {} to {}'.format(stage_folder, name_of_delivery))
             logger.exception(e)
-        delivery_token = output.rstrip() #TODO: get delivery token from DDS?
-        return delivery_token
+        if "Upload completed!" in output:
+            delivery_status = "uploaded"  #TODO: possibly get the dds project status instead
+        return delivery_status
 
     def get_samples_from_charon(self, delivery_status='STAGED'):
         """Takes as input a delivery status and return all samples with that delivery status
@@ -455,34 +377,32 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 samples_of_interest.append(sample_id)
         return samples_of_interest
 
-    def _create_delivery_project(self): #TODO: rewrite for DDS
-        create_project_url = '{}/ngi_delivery/project/create/'.format(self.config_snic.get('snic_api_url'))
-        user               = self.config_snic.get('snic_api_user')
-        password           = self.config_snic.get('snic_api_password')
-        supr_date_format = '%Y-%m-%d'
-        today = datetime.date.today()
-        three_months_from_now = (today + relativedelta(months=+3))
-        data = {
-            'ngi_project_name': self.projectid,
-            'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
-            'pi_id': self.pi_snic_id,
-            'start_date': today.strftime(supr_date_format),
-            'end_date': three_months_from_now.strftime(supr_date_format),
-            'continuation_name': '',
-            # You can use this field to allocate the size of the delivery
-            # 'allocated': size_of_delivery,
-            # This field can be used to add any data you like
-            'api_opaque_data': '',
-            'ngi_ready': False,
-            'ngi_delivery_status': '',
-            'ngi_sensitive_data': self.sensitive,
-            'member_ids': self.other_member_snic_ids
-            }
-        response = requests.post(create_project_url, data=json.dumps(data), auth=(user, password))
-        if response.status_code != 200:
-            raise AssertionError("API returned status code {}. Response: {}. URL: {}".format(response.status_code, response.content, create_project_url))
-        result = json.loads(response.content)
-        return result
+    def _create_delivery_project(self):
+        """
+        dds project create --title "The title of the project" --description "A description of the project" --principal-investigator "The name of the Principal Investigator"
+        --researcher    Email of a user to be added to the project as Researcher. Use the option multiple times to specify more than one researcher
+        --owner         Email of user to be added to the project as Project Owner. Use the option multiple times to specify more than one project owner
+        --is_sensitive  Indicate if the Project includes sensitive data.
+        """
+        create_project_cmd = ('dds project create'
+                              + ' --title ' + self.project_title
+                              + ' --description ' + self.project_desc
+                              + ' --principal-investigator ' + self.pi_name
+                              + ' --owner ' + self.pi_email) #TODO: check that this assumption is correct
+        if self.other_member_details:
+            other_users = " --researcher ".join(self.other_member_details)
+            create_project_cmd += other_users
+        if self.sensitive:
+            create_project_cmd += ' --is_sensitive '
+        dds_project_id = ''
+        try:
+            output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8")
+            project_pattern = re.compile('ngis\d{5}')
+            dds_project_id = re.search(project_pattern, output).group()
+            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output))
+        except Exception as e: #TODO: handle this better
+            logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
+        return dds_project_id
 
     def _set_pi_details(self, given_pi_email=None):
         """
@@ -525,6 +445,21 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
 
+    def _set_project_details(self):
+        try:
+            prj_order = self._get_order_detail()
+            self.project_title = prj_order['order_details']['title']
+            self.project_desc = prj_order['fields']['project_desc'].strip('\n')
+            logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
+            if len(self.project_desc) > 24:
+                short_desc = self.project_desc[:25] + '...'
+            else:
+                short_desc = self.project_desc
+            logger.info("Project description for project {} found: {}".format(short_desc))
+        except Exception as e:
+                logger.error("Cannot fetch project title and/or description from StatusDB. Error says: {}".format(str(e)))
+                raise e
+
     def _get_order_detail(self):
         status_db = StatusdbSession(self.config_statusdb)
         projects_db = status_db.connection['projects']
@@ -556,34 +491,11 @@ class DDSSampleDeliverer(SampleDeliverer):
             sampleid,
             **kwargs)
 
-    def deliver_sample(self, sampleentry=None):
-        """ Deliver a sample to the destination specified via command line or on Charon.
-            Will check if the sample has already been delivered and should not
-            be delivered again or if the sample is not yet ready to be delivered.
-            Delivers only samples that have been staged.
-
-            :params sampleentry: a database sample entry to use for delivery,
-                be very careful with caching the database entries though since
-                concurrent processes can update the database at any time
-            :returns: True if sample was successfully delivered or was previously
-                delivered, False if sample was not yet ready to be delivered
-            :raises taca_ngi_pipeline.utils.database.DatabaseError: if an entry corresponding to this
-                sample could not be found in the database
-            :raises DelivererReplaceError: if a previous delivery of this sample
-                has taken place but should be replaced
-            :raises DelivererError: if the delivery failed
-        """
-        # propagate raised errors upwards, they should trigger notification to operator
-        """#TODO: is this needed?
-        # try:
-        logger.info("Delivering {} to GRUS with MOVER".format(str(self)))
-        hard_stagepath = self.expand_path(self.stagingpathhard)
-        soft_stagepath = self.expand_path(self.stagingpath)
+    def update_sample_status(self, sampleentry=None):
+        """ Update delivery status in charon
         """
         try:
-            logger.info("Trying to deliver {} with DDS".format(str(self)))
-            hard_stagepath = self.expand_path(self.stagingpathhard) #TODO: are these two used?
-            soft_stagepath = self.expand_path(self.stagingpath)
+            logger.info("Trying to upload {} with DDS".format(str(self)))
             try:
                 if self.get_delivery_status(sampleentry) != 'STAGED':
                     logger.info("{} has not been staged and will not be delivered".format(str(self)))
@@ -593,24 +505,18 @@ class DDSSampleDeliverer(SampleDeliverer):
                 logger.exception(e)
                 raise(e)
             self.update_delivery_status(status="IN_PROGRESS")
-            self.do_delivery()
-        # In case of faiulure reset the status to STAGED
-        except DelivererInterruptedError as e:
-            self.update_delivery_status(status="STAGED")
-            logger.exception(e)
-            raise(e)
         except Exception as e:
             self.update_delivery_status(status="STAGED")
             logger.exception(e)
             raise(e)
 
-    def save_delivery_token_in_charon(self, delivery_token): #TODO: DDS delivery token?
+    def save_delivery_token_in_charon(self, delivery_token): #TODO: DDS delivery token? - can/shuold i use this somewhere?
         """Updates delivery_token in Charon at sample level
         """
         charon_session = CharonSession()
         charon_session.sample_update(self.projectid, self.sampleid, delivery_token=delivery_token)
 
-    def add_supr_name_delivery_in_charon(self, supr_name_of_delivery): #TODO: DDS delivery ID?
+    def add_dds_name_delivery_in_charon(self, name_of_delivery): #TODO: DDS delivery ID?  - can/shuold i use this somewhere?
         """Updates delivery_projects in Charon at project level
         """
         charon_session = CharonSession()
@@ -618,27 +524,14 @@ class DDSSampleDeliverer(SampleDeliverer):
             # Fetch the project
             sample_charon = charon_session.sample_get(self.projectid, self.sampleid)
             delivery_projects = sample_charon['delivery_projects']
-            if supr_name_of_delivery not in sample_charon:
-                delivery_projects.append(supr_name_of_delivery)
+            if name_of_delivery not in sample_charon:
+                delivery_projects.append(name_of_delivery)
                 charon_session.sample_update(self.projectid, self.sampleid, delivery_projects=delivery_projects)
                 logger.info('Charon delivery_projects for sample {} updated '
-                            'with value {}'.format(self.sampleid, supr_name_of_delivery))
+                            'with value {}'.format(self.sampleid, name_of_delivery))
             else:
                 logger.warn('Charon delivery_projects for sample {} not updated '
-                            'with value {} because the value was already present'.format(self.sampleid, supr_name_of_delivery))
+                            'with value {} because the value was already present'.format(self.sampleid, name_of_delivery))
         except Exception as e:
             logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.sampleid, e))
             logger.exception(e)
-
-    def do_delivery(self):
-        """Create a hard copy of staged data
-        """
-        logger.info("Creating hard copy of sample {}".format(self.sampleid))
-        source_dir = os.path.join(self.expand_path(self.stagingpath), self.sampleid)
-        destination_dir = os.path.join(self.expand_path(self.stagingpathhard), self.sampleid)
-        do_copy(source_dir, destination_dir)  # Destination must NOT exist
-        # Copy md5 and other files
-        for file in glob.glob("{}.*".format(source_dir)):
-            shutil.copy(file, self.expand_path(self.stagingpathhard))
-        logger.info("Sample {} has been hard staged to {}".format(self.sampleid, destination_dir))
-        return

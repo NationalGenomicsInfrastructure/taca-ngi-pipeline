@@ -91,7 +91,11 @@ def deliver(ctx, deliverypath, stagingpath,
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fc_delivery=False):
+def project(ctx, projectid, 
+            snic_api_credentials=None, statusdb_config=None, 
+            order_portal=None, pi_email=None, 
+            sensitive=True, hard_stage_only=False, 
+            add_user=None, fc_delivery=False):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
@@ -135,6 +139,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 sensitive=sensitive,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
+                do_release=False,
                 **ctx.parent.params)
             
 
@@ -207,7 +212,7 @@ def _exec_fn(obj, fn):
 			  type=click.File('r'),
 			  help='Path to statusdb-configuration')
 
-def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None): #TODO: add check DDS status
+def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None):
     """In grus delivery mode checks the status of an onggoing delivery
     """
     for pid in projectid:
@@ -224,3 +229,16 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
                 pid,
                 **ctx.parent.params)
         d.check_mover_delivery_status()
+
+@deliver.command()
+@click.pass_context
+@click.argument('projectid', type=click.STRING)
+
+def release_dds_project(ctx, projectid):
+    """Updates DDS delivery status in Charon and releases DDS project to user.
+    """
+    d = _deliver_dds.DDSProjectDeliverer(
+        projectid,
+        do_release=True,
+        **ctx.parent.params)
+    d.release_DDS_delivery_project()
