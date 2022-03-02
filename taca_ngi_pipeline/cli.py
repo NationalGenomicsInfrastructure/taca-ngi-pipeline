@@ -1,5 +1,6 @@
 """ CLI for the deliver subcommand
 """
+from typing_extensions import Required
 import click
 import logging
 
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def deliver(ctx, deliverypath, stagingpath, 
             uppnexid, operator, stage_only, 
-            force, cluster, ignore_analysis_status, 
+            force, cluster, ignore_analysis_status,
             generate_xml_and_manifest_files_only):
     """ Deliver methods entry point
     """
@@ -139,7 +140,7 @@ def project(ctx, projectid,
                 sensitive=sensitive,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
-                do_release=False,
+                do_release=False, #TODO: check that this works
                 **ctx.parent.params)
             
 
@@ -149,6 +150,7 @@ def project(ctx, projectid,
             _exec_fn(d, d.deliver_project)
 
 # sample delivery
+#TODO: not used? remove?
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING, nargs=1)
@@ -233,12 +235,19 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING)
+@click.option('--dds_project',
+              default=None,
+              type=click.STRING,
+              help='DDS project ID to release')
 
-def release_dds_project(ctx, projectid):
+def release_dds_project(ctx, projectid, dds_project):
     """Updates DDS delivery status in Charon and releases DDS project to user.
     """
+    if not dds_project:
+        logger.error('Please specify the DDS project ID to release with --dds_project')
+        return 1
     d = _deliver_dds.DDSProjectDeliverer(
         projectid,
         do_release=True,
         **ctx.parent.params)
-    d.release_DDS_delivery_project()
+    d.release_DDS_delivery_project(dds_project)

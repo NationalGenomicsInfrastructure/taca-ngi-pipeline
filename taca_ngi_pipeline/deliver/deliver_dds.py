@@ -1,9 +1,7 @@
 """
     Module for controlling deliveries os samples and projects to DDS
 """
-import time
 import requests
-import datetime
 import os
 import logging
 import json
@@ -11,7 +9,6 @@ import subprocess
 import sys
 import shutil
 import re
-from dateutil.relativedelta import relativedelta
 
 from ngi_pipeline.database.classes import CharonSession
 from taca.utils.filesystem import create_folder
@@ -53,9 +50,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None and not do_release:
             raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal', None)
+        if self.orderportal in None and not do_release:
+            raise AttributeError("Order portal configuration is needed when delivering to DDS")
         if self.orderportal:
             self._set_pi_details(pi_email)
-            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) #TODO: is add_project_owner needed?
             self._set_project_details()
         self.sensitive = sensitive
         self.fcid = fcid
@@ -68,7 +67,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         fetching from db
         :returns: the delivery status of this project as a string
         """
-        #TODO: maybe use the dds delivery status here, instead of a token, would that be useful?
+        #TODO: Rethink delivery_token. Maybe use the dds delivery status here, instead of a token, would that be useful?
         dbentry = dbentry or self.db_entry()
         if dbentry.get('delivery_token'):
             if dbentry.get('delivery_token') not in ['NO-TOKEN', 'not_under_delivery'] :
@@ -80,32 +79,33 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def release_DDS_delivery_project(self): 
+    def release_DDS_delivery_project(self, dds_project): 
         """ Update charon when data upload is finished and release DDS project to user.
         """
-        #TODO: modify to update charon and release the delivery project to user
         charon_status = self.get_delivery_status()
         # we don't care if delivery is not in progress
         if charon_status != 'IN_PROGRESS':
             logger.info("Project {} has no delivery token. Project is not being delivered at the moment".format(self.projectid))
             return
-        dds_delivery_project = self.db_entry().get('delivery_projects')  #TODO: multiple deliveries possible. Add a check for this and an option to specify which delivery to release
-        dds_delivery_status = self.db_entry().get('delivery_token')
-        logger.info("Project {} (DDS project {}) delivery status is {}.".format(self.projectid, dds_delivery_project, dds_delivery_status))
-        #TODO: Add a question to user "Do you want to proceed with the release?" Possibly list samples that have been uploaded and the total nr of samples
+        question = "About to release project {} in DDS delivery project {} to user. Continue? ".format(self.projectid, dds_project)
+        if proceed_or_not(question):
+            logger.info("Releasing DDS project {} to user".format(dds_project))  #TODO: Possibly list samples that have been uploaded and the total nr of samples
+        else:
+            logger.error("{} delivery has been aborted.".format(str(self)))
+            return 1  # TODO: not sure about this
+        
         delivery_status = 'IN_PROGRESS'
         try:
-            cmd = ['dds', 'project', 'status', 'release', '--project', dds_delivery_project]
+            cmd = ['dds', 'project', 'status', 'release', '--project', dds_project]
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_delivery_project))
+            logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
-        except Exception as e:
-            logger.error('Cannot release project {}, and error occurred: {}'.format(self.projectid, e))
+        except Exception as e:  # TODO: better exeption handling
+            logger.error('Could not release project {}, an error occurred: {}'.format(self.projectid, e))
             delivery_status = 'FAILED'
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
-            #fetch all samples that were under delivery
+            # Fetch all samples that were under delivery and update their status in charon
             in_progress_samples = self.get_samples_from_charon(delivery_status="IN_PROGRESS")
-            # now update them
             for sample_id in in_progress_samples:
                 try:
                     sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
@@ -122,7 +122,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                     sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     if sample_deliverer.get_sample_status() == 'ABORTED':
                         continue
-                    if sample_deliverer.get_delivery_status() != 'DELIVERED':  #TODO: check this logic
+                    if sample_deliverer.get_delivery_status() != 'DELIVERED':
                         all_samples_delivered = False
                 except Exception as e:
                     logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
@@ -138,32 +138,39 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """
         soft_stagepath = self.expand_path(self.stagingpath)
 
-        if self.get_delivery_status() == 'DELIVERED' \
-                and not self.force:
-            logger.info("{} has already been delivered. This project will not be delivered again this time.".format(str(self)))
+        if self.get_delivery_status() == 'DELIVERED' and not self.force:
+            logger.info("{} has already been delivered. This project will not "
+                        "be delivered again this time.".format(str(self)))
             return True
         
         elif self.get_delivery_status() == 'IN_PROGRESS':
-            logger.error("Project {} is already under delivery. Multiple deliveries are not allowed".format(
-                    self.projectid))
+            logger.error("Project {} is already under delivery. "
+                         "Multiple deliveries are not allowed".format(self.projectid))
             raise DelivererInterruptedError("Project already under delivery")
         
         elif self.get_delivery_status() == 'PARTIAL':
-            logger.warning("{} has already been partially delivered. Please confirm you want to proceed.".format(str(self)))
+            logger.warning("{} has already been partially delivered. "
+                           "Please confirm you want to proceed.".format(str(self)))
             if proceed_or_not("Do you want to proceed (yes/no): "):
-                logger.info("{} has already been partially delivered. User confirmed to proceed.".format(str(self)))
+                logger.info("{} has already been partially delivered. "
+                            "User confirmed to proceed.".format(str(self)))
             else:
-                logger.error("{} has already been partially delivered. User decided to not proceed.".format(str(self)))
+                logger.error("{} has already been partially delivered. "
+                             "User decided to not proceed.".format(str(self)))
                 return False
         
         # Check if the sensitive flag has been set in the correct way
-        question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
+        question = "This project has been marked as SENSITIVE "
+        "(option --sensitive). Do you want to proceed with delivery? "
         if not self.sensitive:
-            question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
+            question = "This project has been marked as NON-SENSITIVE "
+            "(option --no-sensitive). Do you want to proceed with delivery? "
         if proceed_or_not(question):
-            logger.info("Delivering {} with DDS. Project marked as SENSITIVE={}".format(str(self), self.sensitive))
+            logger.info("Delivering {} with DDS. "
+                        "Project marked as SENSITIVE={}".format(str(self), self.sensitive))
         else:
-            logger.error("{} delivery has been aborted. Sensitive level was WRONG.".format(str(self)))
+            logger.error("{} delivery has been aborted. "
+                         "Sensitive level was WRONG.".format(str(self)))
             return False
         
         # Now start with the real work
@@ -191,7 +198,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.error("Aborting delivery for {}, remove/add files as required and try again".format(str(self)))
             return False
 
-        # create a delivery project id 
+        # create a delivery project
         dds_name_of_delivery = ''
         try:
             dds_name_of_delivery = self._create_delivery_project()
@@ -205,20 +212,22 @@ class DDSProjectDeliverer(ProjectDeliverer):
         for sample_id in samples_to_deliver:
             try:
                 sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
-                sample_deliverer.update_sample_status() #TODO: note -- don't upload per sample, instead deliver whole folder
+                sample_deliverer.update_sample_status()
             except Exception as e:
-                logger.error('Sample {} has not been staged. Error says: {}'.format(sample_id, e)) #TODO: make these messages more accurate
+                logger.error('Sample status for {} has not been updated in Charon. '
+                             'Error says: {}'.format(sample_id, e))
                 logger.exception(e)
                 raise e
             else:
                 samples_in_progress.append(sample_id)
         if len(samples_to_deliver) != len(samples_in_progress):
             # Something unexpected happend, terminate
-            logger.warning('Not all the samples have been staged. Terminating')
-            raise AssertionError('len(samples_to_deliver) != len(samples_in_progress): {} != {}'.format(len(samples_to_deliver),
-                                                                                                        len(samples_in_progress)))
+            logger.warning('Not all the samples have been updated in Charon. Terminating')
+            raise AssertionError('len(samples_to_deliver) != len(samples_in_progress): '
+                                 '{} != {}'.format(len(samples_to_deliver),
+                                                   len(samples_in_progress)))
 
-        delivery_status = self.do_delivery(dds_name_of_delivery)
+        delivery_status = self.do_delivery(dds_name_of_delivery) # status is "uploaded" if successful
         # Update project and samples fields in charon
         if delivery_status:
             self.save_delivery_token_in_charon(delivery_status)
@@ -237,7 +246,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                     logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
                     logger.exception(e)
         else:
-            logger.error('Delivery project for project {} has not been created'.format(self.projectid))
+            logger.error('Something when wrong when uploading data to {} '
+                         'for project {} has not been created'.format(dds_name_of_delivery, self.projectid))
             status = False
 
         return status
@@ -268,37 +278,40 @@ class DDSProjectDeliverer(ProjectDeliverer):
             shutil.copy(runfolder_md5file, dst)
             logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError as e:
-            logger.error("Unable to copy files to {}. Please check that the files exist and that the filenames match the flowcell ID.".format(dst))
+            logger.error("Unable to copy files to {}. Please check that the files "
+                         "exist and that the filenames match the flowcell ID.".format(dst))
 
         delivery_id = ''
         try:
             delivery_id = self._create_delivery_project()
-            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, delivery_id))
+            logger.info("Delivery project for project {} has been created. "
+                        "Delivery ID is {}".format(self.projectid, delivery_id))
         except Exception as e: #TODO: where to catch errors?
             logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
 
         # Upload with DDS
-        delivery_token = self.do_delivery(delivery_id) #TODO: DDS token?
+        dds_delivery_status = self.do_delivery(delivery_id)
 
-        if delivery_token:
-            logger.info("Delivery token for project {}, delivery project {} is {}".format(self.projectid,
-                                                                                    delivery_id,
-                                                                                    delivery_token))
+        if dds_delivery_status:
+            logger.info("DDS upload for project {} to "
+                        "delivery project {} was sucessful".format(self.projectid,
+                                                                   delivery_id))
         else:
-            logger.error('Delivery project for project {} has not been created'.format(self.projectid))
+            logger.error('Something when wrong when uploading {} '
+                         'to DDS project {}'.format(self.projectid, delivery_id))
             status = False
         #TODO: Update charon with status, delivery project and token etc?
         return status
 
 
-    def save_delivery_token_in_charon(self, delivery_token): #TODO: delivery token in DDS?
+    def save_delivery_token_in_charon(self, delivery_token):
         """Updates delivery_token in Charon at project level
         """
         charon_session = CharonSession()
         charon_session.project_update(self.projectid, delivery_token=delivery_token)
 
-    def delete_delivery_token_in_charon(self): #TODO: delivery token in DDS?
+    def delete_delivery_token_in_charon(self):
         """Removes delivery_token from Charon upon successful delivery
         """
         charon_session = CharonSession()
@@ -315,11 +328,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
             if name_of_delivery not in delivery_projects:
                 delivery_projects.append(name_of_delivery)
                 charon_session.project_update(self.projectid, delivery_projects=delivery_projects)
-                logger.info('Charon delivery_projects for project {} updated with value {}'.format(self.projectid, name_of_delivery))
+                logger.info('Charon delivery_projects for project {} '
+                            'updated with value {}'.format(self.projectid, name_of_delivery))
             else:
-                logger.warn('Charon delivery_projects for project {} not updated with value {} because the value was already present'.format(self.projectid, name_of_delivery))
+                logger.warn('Charon delivery_projects for project {} not updated '
+                            'with value {} because the value was already present'.format(self.projectid, name_of_delivery))
         except Exception as e:
-            logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.projectid, e))
+            logger.error('Failed to update delivery_projects in charon while '
+                         'delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
     def add_dds_name_delivery_in_statusdb(self, name_of_delivery):
@@ -378,11 +394,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         return samples_of_interest
 
     def _create_delivery_project(self):
-        """
-        dds project create --title "The title of the project" --description "A description of the project" --principal-investigator "The name of the Principal Investigator"
-        --researcher    Email of a user to be added to the project as Researcher. Use the option multiple times to specify more than one researcher
-        --owner         Email of user to be added to the project as Project Owner. Use the option multiple times to specify more than one project owner
-        --is_sensitive  Indicate if the Project includes sensitive data.
+        """Create a DDS delivery project and return the ID
         """
         create_project_cmd = ('dds project create'
                               + ' --title ' + self.project_title
@@ -424,9 +436,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 raise e
 
     def _set_other_member_details(self, other_member_emails=[], include_owner=False):
-        """
-            Set other contact details if avilable, this is not mandatory so
-            the method will not raise error if it could not find any contact
+        """Set other contact details if avilable, this is not mandatory so
+        the method will not raise error if it could not find any contact
         """
         self.other_member_details = []
         # try getting appropriate contact emails
@@ -449,7 +460,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         try:
             prj_order = self._get_order_detail()
             self.project_title = prj_order['order_details']['title']
-            self.project_desc = prj_order['fields']['project_desc'].strip('\n')
+            self.project_desc = prj_order['fields']['project_desc'].replace('\n', '\s')
             logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
             if len(self.project_desc) > 24:
                 short_desc = self.project_desc[:25] + '...'
@@ -510,13 +521,13 @@ class DDSSampleDeliverer(SampleDeliverer):
             logger.exception(e)
             raise(e)
 
-    def save_delivery_token_in_charon(self, delivery_token): #TODO: DDS delivery token? - can/shuold i use this somewhere?
+    def save_delivery_token_in_charon(self, delivery_token):
         """Updates delivery_token in Charon at sample level
         """
         charon_session = CharonSession()
         charon_session.sample_update(self.projectid, self.sampleid, delivery_token=delivery_token)
 
-    def add_dds_name_delivery_in_charon(self, name_of_delivery): #TODO: DDS delivery ID?  - can/shuold i use this somewhere?
+    def add_dds_name_delivery_in_charon(self, name_of_delivery):
         """Updates delivery_projects in Charon at project level
         """
         charon_session = CharonSession()
