@@ -1,6 +1,5 @@
 """ CLI for the deliver subcommand
 """
-from typing_extensions import Required
 import click
 import logging
 
@@ -76,6 +75,10 @@ def deliver(ctx, deliverypath, stagingpath,
             default=None,
             type=click.STRING,
             help='pi-email, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email')
+@click.option('--pi-name',
+            default=None,
+            type=click.STRING,  #TODO: handle special characters
+            help='pi-name, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email') 
 @click.option('--sensitive/--no-sensitive',
             default=True,
             help='flag to specify if data contained in the project is sensitive or not')
@@ -91,12 +94,21 @@ def deliver(ctx, deliverypath, stagingpath,
               default=False,
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
+@click.option('--project-title',
+            default=None,
+            type=click.STRING,
+            help='Project title, to be specified if project not in order portal (DDS only)')
+@click.option('--project-desc',
+            default=None,
+            type=click.STRING,
+            help='Project description, to be specified if project not in order portal (DDS only)')
 
 def project(ctx, projectid, 
             snic_api_credentials=None, statusdb_config=None, 
-            order_portal=None, pi_email=None, 
+            order_portal=None, pi_email=None, pi_name=None,
             sensitive=True, hard_stage_only=False, 
-            add_user=None, fc_delivery=False):
+            add_user=None, fc_delivery=False,
+            project_title=None, project_desc=None):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
@@ -131,16 +143,19 @@ def project(ctx, projectid,
                 return 1
             load_yaml_config(statusdb_config.name)
             if order_portal == None:
-                logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
+                logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform DDS delivery")
                 return 1
             load_yaml_config(order_portal.name)
             d = _deliver_dds.DDSProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
+                pi_name=pi_name,
                 sensitive=sensitive,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
-                do_release=False, #TODO: check that this works
+                do_release=False,
+                project_title=project_title,
+                project_description=project_desc,
                 **ctx.parent.params)
             
 

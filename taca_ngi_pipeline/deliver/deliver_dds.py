@@ -32,15 +32,17 @@ def proceed_or_not(question):
         elif choice in no:
             return False
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no'")
+            sys.stdout.write("Please respond with 'yes' or 'no' ")
 
 
 class DDSProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples with DDS.
     """
     def __init__(self, projectid=None, sampleid=None, 
-                 pi_email=None, sensitive=True,
-                 add_user=None, fcid=None, do_release=False, **kwargs):
+                 pi_email=None, pi_name=None, sensitive=True,
+                 add_user=None, fcid=None, do_release=False, 
+                 project_title=None, project_description=None,
+                 **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -50,12 +52,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if self.config_statusdb is None and not do_release:
             raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password, port")
         self.orderportal = CONFIG.get('order_portal', None)
-        if self.orderportal in None and not do_release:
+        if self.orderportal is None and not do_release:
             raise AttributeError("Order portal configuration is needed when delivering to DDS")
         if self.orderportal:
-            self._set_pi_details(pi_email)
-            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False)) #TODO: is add_project_owner needed?
-            self._set_project_details()
+            self._set_pi_details(pi_email, pi_name)
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+            self._set_project_details(project_title, project_description)
         self.sensitive = sensitive
         self.fcid = fcid
         
@@ -160,11 +162,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 return False
         
         # Check if the sensitive flag has been set in the correct way
-        question = "This project has been marked as SENSITIVE "
-        "(option --sensitive). Do you want to proceed with delivery? "
+        question = ("This project has been marked as SENSITIVE "
+        "(option --sensitive). Do you want to proceed with delivery? ")
         if not self.sensitive:
-            question = "This project has been marked as NON-SENSITIVE "
-            "(option --no-sensitive). Do you want to proceed with delivery? "
+            question = ("This project has been marked as NON-SENSITIVE "
+            "(option --no-sensitive). Do you want to proceed with delivery? ")
         if proceed_or_not(question):
             logger.info("Delivering {} with DDS. "
                         "Project marked as SENSITIVE={}".format(str(self), self.sensitive))
@@ -206,7 +208,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
         except Exception as e: #TODO: where to catch errors?
             logger.error('Cannot create delivery project. Error says: {}'.format(e))
             logger.exception(e)
-
+            exit
+            
         # Update delivery status in Charon
         samples_in_progress = []
         for sample_id in samples_to_deliver:
@@ -254,6 +257,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def deliver_run_folder(self):
         """ Hard stage run folder and initiate delivery.
+        #TODO: this needs to be checked again
         """
         # Stage the data
         dst = self.expand_path(self.stagingpath) #TODO: possibly change this in config to avoid conflicts in DELIVERY
@@ -354,7 +358,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         project_page['delivery_projects'] = delivery_projects
         try:
-            status_db.save_db_doc(project_page)
+            status_db.save_db_doc(project_page)  #TODO: error when running not as DB admin: Failed saving document due to ('forbidden', 'Developer role cannot update documents of this DB!')
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, name_of_delivery))
         except Exception as e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
@@ -362,7 +366,6 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def do_delivery(self, name_of_delivery):
         """Upload staged sample data with DDS
-        #TODO: decide if we want to upload the whole staging dir at once or provide a list of files
         """
         stage_folder = self.expand_path(self.stagingpath)
         cmd = ['dds', 'data', 'put', 
@@ -395,17 +398,19 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def _create_delivery_project(self):
         """Create a DDS delivery project and return the ID
+        #TODO: this works when emails are already assiciated with a user but maybe not if an email needs to be sent to a new user, is the exit code 2 then?
         """
-        create_project_cmd = ('dds project create'
-                              + ' --title ' + self.project_title
-                              + ' --description ' + self.project_desc
-                              + ' --principal-investigator ' + self.pi_name
-                              + ' --owner ' + self.pi_email) #TODO: check that this assumption is correct
+        create_project_cmd = ['dds', 'project', 'create',
+                              '--title', self.project_title,
+                              '--description', self.project_desc,
+                              '--principal-investigator', self.pi_name,
+                              '--owner', self.pi_email] #TODO: check that this assumption is correct
         if self.other_member_details:
-            other_users = " --researcher ".join(self.other_member_details)
-            create_project_cmd += other_users
+            for member in self.other_member_details:
+                create_project_cmd.append('--researcher')
+                create_project_cmd.append(member)
         if self.sensitive:
-            create_project_cmd += ' --is_sensitive '
+            create_project_cmd.append('--is_sensitive')
         dds_project_id = ''
         try:
             output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8")
@@ -416,16 +421,18 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
         return dds_project_id
 
-    def _set_pi_details(self, given_pi_email=None):
+    def _set_pi_details(self, given_pi_email=None, given_pi_name=None):
         """
             Set PI email address and PI name using PI email
         """
-        self.pi_email, self.pi_name = (None, None)
         # try getting PI email
         if given_pi_email:
             logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
             self.pi_email = given_pi_email
-        else:
+        if given_pi_name:
+            logger.warning("PI name for project {} specified by user: {}".format(self.projectid, given_pi_name))
+            self.pi_name = given_pi_name
+        if not self.pi_email and not self.pi_name:  #TODO: make it possible to specify one or the other
             try:
                 prj_order = self._get_order_detail()
                 self.pi_email = prj_order['fields']['project_pi_email']
@@ -456,20 +463,27 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
 
-    def _set_project_details(self):
-        try:
-            prj_order = self._get_order_detail()
-            self.project_title = prj_order['order_details']['title']
-            self.project_desc = prj_order['fields']['project_desc'].replace('\n', '\s')
-            logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
-            if len(self.project_desc) > 24:
-                short_desc = self.project_desc[:25] + '...'
-            else:
-                short_desc = self.project_desc
-            logger.info("Project description for project {} found: {}".format(short_desc))
-        except Exception as e:
-                logger.error("Cannot fetch project title and/or description from StatusDB. Error says: {}".format(str(e)))
-                raise e
+    def _set_project_details(self, given_title=None, given_desc=None):
+        if given_title:
+            logger.warning("Project title for project {} specified by user: {}".format(self.projectid, given_title))
+            self.project_title = given_title
+        if given_desc:
+            logger.warning("Project description for project {} specified by user: {}".format(self.projectid, given_desc))
+            self.project_desc = given_desc
+        if not self.project_desc or not self.project_title:  #TODO: make it possible to specify one or the other
+            try:
+                prj_order = self._get_order_detail()
+                self.project_title = prj_order['order_details']['title']
+                self.project_desc = prj_order['fields']['project_desc'].replace('\n', '\s')
+                logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
+                if len(self.project_desc) > 24:
+                    short_desc = self.project_desc[:25] + '...'
+                else:
+                    short_desc = self.project_desc
+                logger.info("Project description for project {} found: {}".format(short_desc))
+            except Exception as e:
+                    logger.error("Cannot fetch project title and/or description from StatusDB. Error says: {}".format(str(e)))
+                    raise e
 
     def _get_order_detail(self):
         status_db = StatusdbSession(self.config_statusdb)
@@ -481,13 +495,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if len(rows) > 1:
             raise AssertionError('Project {} has more than one entry in orderportal_db'.format(self.projectid))
         portal_id = rows[0].value
-        # Get the PI email from order portal API
+        # Get project info from order portal API
         get_project_url = '{}/v1/order/{}'.format(self.orderportal.get('orderportal_api_url'), portal_id)
         headers = {'X-OrderPortal-API-key': self.orderportal.get('orderportal_api_token')}
         response = requests.get(get_project_url, headers=headers)
         if response.status_code != 200:
             raise AssertionError("Status code returned when trying to get "
-                                 "PI email from project in order portal: "
+                                 "project info from the order portal: "
                                  "{} was not 200. Response was: {}".format(portal_id, response.content))
         return json.loads(response.content)
 
