@@ -366,13 +366,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def do_delivery(self, name_of_delivery):
         """Upload staged sample data with DDS
+        #TODO: creates directories with logs etc. Where to put them? 
         """
         stage_folder = self.expand_path(self.stagingpath)
         cmd = ['dds', 'data', 'put', 
                '--project', name_of_delivery, 
                '--source', stage_folder]
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8') #TODO: change this to run detached, or look for "Upload completed!"?
+            output = subprocess.check_output(cmd).decode('utf-8') #TODO: change this to run detached, or look for "Upload completed!"?
         except subprocess.CalledProcessError as e:
             logger.error('DDS upload failed while uploading {} to {}'.format(stage_folder, name_of_delivery))
             logger.exception(e)
@@ -413,10 +414,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--is_sensitive')
         dds_project_id = ''
         try:
-            output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8")
-            project_pattern = re.compile('ngis\d{5}')
+            output = subprocess.check_output(create_project_cmd).decode("utf-8") #TODO: get more output (removed stderr=subprocess.STDOUT)
+            project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
             dds_project_id = re.search(project_pattern, output).group()
-            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output))
+            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
         except Exception as e: #TODO: handle this better
             logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
         return dds_project_id
@@ -425,6 +426,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """
             Set PI email address and PI name using PI email
         """
+        self.pi_email, self.pi_name = (None, None)
         # try getting PI email
         if given_pi_email:
             logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
@@ -438,6 +440,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 self.pi_email = prj_order['fields']['project_pi_email']
                 self.pi_name = prj_order['fields']['project_pi_name']
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
+                logger.info("PI name for project {} found: {}".format(self.projectid, self.pi_name))
             except Exception as e:
                 logger.error("Cannot fetch pi_email and/or name from StatusDB. Error says: {}".format(str(e)))
                 raise e
@@ -460,10 +463,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
         except (AssertionError, ValueError) as e:
             pass # nothing to worry, just move on
         if other_member_emails:
-            logger.info("Other appropriate contacts were found, they will be added to GRUS delivery project: {}".format(", ".join(other_member_emails)))
+            logger.info("Other appropriate contacts were found, they will be added to DDS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
 
     def _set_project_details(self, given_title=None, given_desc=None):
+        self.project_title, self.project_desc = (None, None)
         if given_title:
             logger.warning("Project title for project {} specified by user: {}".format(self.projectid, given_title))
             self.project_title = given_title
@@ -473,14 +477,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if not self.project_desc or not self.project_title:  #TODO: make it possible to specify one or the other
             try:
                 prj_order = self._get_order_detail()
-                self.project_title = prj_order['order_details']['title']
+                self.project_title = prj_order['title']
                 self.project_desc = prj_order['fields']['project_desc'].replace('\n', '\s')
                 logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
                 if len(self.project_desc) > 24:
                     short_desc = self.project_desc[:25] + '...'
                 else:
                     short_desc = self.project_desc
-                logger.info("Project description for project {} found: {}".format(short_desc))
+                logger.info("Project description for project {} found: {}".format(self.projectid, short_desc))
             except Exception as e:
                     logger.error("Cannot fetch project title and/or description from StatusDB. Error says: {}".format(str(e)))
                     raise e
