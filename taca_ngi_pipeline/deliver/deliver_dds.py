@@ -7,7 +7,6 @@ import logging
 import json
 import subprocess
 import sys
-import shutil
 import re
 
 from ngi_pipeline.database.classes import CharonSession
@@ -387,7 +386,6 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def _create_delivery_project(self):
         """Create a DDS delivery project and return the ID
-        #TODO: this works when emails are already assiciated with a user but maybe not if an email needs to be sent to a new user, is the exit code 2 then?
         """
         create_project_cmd = ['dds', 'project', 'create',
                               '--title', self.project_title,
@@ -402,11 +400,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--is_sensitive')
         dds_project_id = ''
         try:
-            output = subprocess.check_output(create_project_cmd).decode("utf-8") #TODO: get more output (removed stderr=subprocess.STDOUT)
+            output = subprocess.check_output(create_project_cmd).decode("utf-8") #TODO: get more output (stderr=subprocess.STDOUT?)
             project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
             dds_project_id = re.search(project_pattern, output).group()
             logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
-        except Exception as e:
+        except Exception as e:  #TODO: explicitly handle when new user is added (exit 2)
             logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
             raise e
         return dds_project_id
