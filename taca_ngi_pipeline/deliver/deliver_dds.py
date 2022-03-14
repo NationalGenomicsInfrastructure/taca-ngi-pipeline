@@ -69,7 +69,6 @@ class DDSProjectDeliverer(ProjectDeliverer):
         fetching from db
         :returns: the delivery status of this project as a string
         """
-        #TODO: Rethink delivery_token. Maybe use the dds delivery status here, instead of a token, would that be useful?
         dbentry = dbentry or self.db_entry()
         if dbentry.get('delivery_token'):
             if dbentry.get('delivery_token') not in ['NO-TOKEN', 'not_under_delivery'] :
@@ -83,6 +82,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def release_DDS_delivery_project(self, dds_project): 
         """ Update charon when data upload is finished and release DDS project to user.
+        For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
         charon_status = self.get_delivery_status()
         # we don't care if delivery is not in progress
@@ -91,10 +91,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return
         question = "About to release project {} in DDS delivery project {} to user. Continue? ".format(self.projectid, dds_project)
         if proceed_or_not(question):
-            logger.info("Releasing DDS project {} to user".format(dds_project))  #TODO: Possibly list samples that have been uploaded and the total nr of samples
+            logger.info("Releasing DDS project {} to user".format(dds_project))  
         else:
             logger.error("{} delivery has been aborted.".format(str(self)))
-            return 1  # TODO: not sure about this
+            return
         
         delivery_status = 'IN_PROGRESS'
         try:
@@ -102,7 +102,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
-        except Exception as e:  # TODO: better exeption handling
+        except Exception as e:
             logger.error('Could not release project {}, an error occurred: {}'.format(self.projectid, e))
             delivery_status = 'FAILED'
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
@@ -202,13 +202,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         # create a delivery project
         dds_name_of_delivery = ''
-        try:
-            dds_name_of_delivery = self._create_delivery_project()
-            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
-        except Exception as e: #TODO: where to catch errors?
-            logger.error('Cannot create delivery project. Error says: {}'.format(e))
-            logger.exception(e)
-            exit
+        dds_name_of_delivery = self._create_delivery_project()
+        logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
             
         # Update delivery status in Charon
         samples_in_progress = []
@@ -230,7 +225,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                                  '{} != {}'.format(len(samples_to_deliver),
                                                    len(samples_in_progress)))
 
-        delivery_status = self.do_delivery(dds_name_of_delivery) # status is "uploaded" if successful
+        delivery_status = self.do_delivery(dds_name_of_delivery)  # Status is "uploaded" if successful
         # Update project and samples fields in charon
         if delivery_status:
             self.save_delivery_token_in_charon(delivery_status)
@@ -256,11 +251,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
         return status
 
     def deliver_run_folder(self):
-        """ Hard stage run folder and initiate delivery.
-        #TODO: this needs to be checked again
+        """ Symlink run folder to stage path, create DDS delivery project and upload data.
         """
         # Stage the data
-        dst = self.expand_path(self.stagingpath) #TODO: possibly change this in config to avoid conflicts in DELIVERY
+        dst = self.expand_path(self.stagingpath)
         path_to_data = self.expand_path(self.datapath)
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
@@ -278,21 +272,17 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         create_folder(dst)
         try:
-            shutil.copy(runfolder_archive, dst) #TODO: symlink instead?
-            shutil.copy(runfolder_md5file, dst)
-            logger.info("Copying files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
+            os.symlink(runfolder_archive, dst)
+            os.symlink(runfolder_md5file, dst)
+            logger.info("Symlinking files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError as e:
-            logger.error("Unable to copy files to {}. Please check that the files "
+            logger.error("Unable to symlink files to {}. Please check that the files "
                          "exist and that the filenames match the flowcell ID.".format(dst))
 
         delivery_id = ''
-        try:
-            delivery_id = self._create_delivery_project()
-            logger.info("Delivery project for project {} has been created. "
-                        "Delivery ID is {}".format(self.projectid, delivery_id))
-        except Exception as e: #TODO: where to catch errors?
-            logger.error('Cannot create delivery project. Error says: {}'.format(e))
-            logger.exception(e)
+        delivery_id = self._create_delivery_project()
+        logger.info("Delivery project for project {} has been created. "
+                    "Delivery ID is {}".format(self.projectid, delivery_id))
 
         # Upload with DDS
         dds_delivery_status = self.do_delivery(delivery_id)
@@ -305,7 +295,6 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.error('Something when wrong when uploading {} '
                          'to DDS project {}'.format(self.projectid, delivery_id))
             status = False
-        #TODO: Update charon with status, delivery project and token etc?
         return status
 
 
@@ -358,7 +347,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         project_page['delivery_projects'] = delivery_projects
         try:
-            status_db.save_db_doc(project_page)  #TODO: error when running not as DB admin: Failed saving document due to ('forbidden', 'Developer role cannot update documents of this DB!')
+            status_db.save_db_doc(project_page)
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, name_of_delivery))
         except Exception as e:
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
@@ -366,19 +355,18 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def do_delivery(self, name_of_delivery):
         """Upload staged sample data with DDS
-        #TODO: creates directories with logs etc. Where to put them? 
         """
         stage_folder = self.expand_path(self.stagingpath)
         cmd = ['dds', 'data', 'put', 
                '--project', name_of_delivery, 
-               '--source', stage_folder]
+               '--source', stage_folder]  #TODO: include option for specifying path for delivery log dirs
         try:
-            output = subprocess.check_output(cmd).decode('utf-8') #TODO: change this to run detached, or look for "Upload completed!"?
+            output = subprocess.check_output(cmd).decode('utf-8')
         except subprocess.CalledProcessError as e:
             logger.error('DDS upload failed while uploading {} to {}'.format(stage_folder, name_of_delivery))
             logger.exception(e)
         if "Upload completed!" in output:
-            delivery_status = "uploaded"  #TODO: possibly get the dds project status instead
+            delivery_status = "uploaded"
         return delivery_status
 
     def get_samples_from_charon(self, delivery_status='STAGED'):
@@ -405,7 +393,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                               '--title', self.project_title,
                               '--description', self.project_desc,
                               '--principal-investigator', self.pi_name,
-                              '--owner', self.pi_email] #TODO: check that this assumption is correct
+                              '--owner', self.pi_email]
         if self.other_member_details:
             for member in self.other_member_details:
                 create_project_cmd.append('--researcher')
@@ -418,8 +406,9 @@ class DDSProjectDeliverer(ProjectDeliverer):
             project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
             dds_project_id = re.search(project_pattern, output).group()
             logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
-        except Exception as e: #TODO: handle this better
+        except Exception as e:
             logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
+            raise e
         return dds_project_id
 
     def _set_pi_details(self, given_pi_email=None, given_pi_name=None):
@@ -434,7 +423,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if given_pi_name:
             logger.warning("PI name for project {} specified by user: {}".format(self.projectid, given_pi_name))
             self.pi_name = given_pi_name
-        if not self.pi_email and not self.pi_name:  #TODO: make it possible to specify one or the other
+        if not self.pi_email and not self.pi_name:
             try:
                 prj_order = self._get_order_detail()
                 self.pi_email = prj_order['fields']['project_pi_email']
@@ -474,7 +463,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if given_desc:
             logger.warning("Project description for project {} specified by user: {}".format(self.projectid, given_desc))
             self.project_desc = given_desc
-        if not self.project_desc or not self.project_title:  #TODO: make it possible to specify one or the other
+        if not self.project_desc or not self.project_title:
             try:
                 prj_order = self._get_order_detail()
                 self.project_title = prj_order['title']
