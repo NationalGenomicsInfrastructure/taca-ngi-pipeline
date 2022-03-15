@@ -356,9 +356,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """Upload staged sample data with DDS
         """
         stage_dir = self.expand_path(self.stagingpath)
-        log_dir = os.path.basename(CONFIG.get('log').get('file'))
+        log_dir = os.path.join(os.path.basename(CONFIG.get('log').get('file')), 'DDS_logs') 
+        project_log_dir = os.path.join(log_dir, self.projectid)
         cmd = ['dds', 'data', 'put', 
-               '--mount-dir', log_dir,  #TODO: rename the log dir to include project id
+               '--mount-dir', project_log_dir,
                '--project', name_of_delivery, 
                '--source', stage_dir]
         try:
