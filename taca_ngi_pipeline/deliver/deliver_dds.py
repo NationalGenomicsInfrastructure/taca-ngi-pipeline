@@ -224,7 +224,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                                  '{} != {}'.format(len(samples_to_deliver),
                                                    len(samples_in_progress)))
 
-        delivery_status = self.do_delivery(dds_name_of_delivery)  # Status is "uploaded" if successful
+        delivery_status = self.upload_data(dds_name_of_delivery)  # Status is "uploaded" if successful
         # Update project and samples fields in charon
         if delivery_status:
             self.save_delivery_token_in_charon(delivery_status)
@@ -284,7 +284,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                     "Delivery ID is {}".format(self.projectid, delivery_id))
 
         # Upload with DDS
-        dds_delivery_status = self.do_delivery(delivery_id)
+        dds_delivery_status = self.upload_data(delivery_id)
 
         if dds_delivery_status:
             logger.info("DDS upload for project {} to "
@@ -352,17 +352,19 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
             logger.exception(e)
 
-    def do_delivery(self, name_of_delivery):
+    def upload_data(self, name_of_delivery):
         """Upload staged sample data with DDS
         """
-        stage_folder = self.expand_path(self.stagingpath)
+        stage_dir = self.expand_path(self.stagingpath)
+        log_dir = os.path.basename(CONFIG.get('log').get('file'))
         cmd = ['dds', 'data', 'put', 
+               '--mount-dir', log_dir,  #TODO: rename the log dir to include project id
                '--project', name_of_delivery, 
-               '--source', stage_folder]  #TODO: include option for specifying path for delivery log dirs
+               '--source', stage_dir]
         try:
             output = subprocess.check_output(cmd).decode('utf-8')
         except subprocess.CalledProcessError as e:
-            logger.error('DDS upload failed while uploading {} to {}'.format(stage_folder, name_of_delivery))
+            logger.error('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
             logger.exception(e)
         if "Upload completed!" in output:
             delivery_status = "uploaded"
