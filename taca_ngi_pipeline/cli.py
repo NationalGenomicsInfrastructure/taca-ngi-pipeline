@@ -77,7 +77,7 @@ def deliver(ctx, deliverypath, stagingpath,
             help='pi-email, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email')
 @click.option('--pi-name',
             default=None,
-            type=click.STRING,  #TODO: handle special characters
+            type=click.STRING,
             help='pi-name, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email') 
 @click.option('--sensitive/--no-sensitive',
             default=True,

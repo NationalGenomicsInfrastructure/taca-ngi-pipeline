@@ -84,7 +84,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
         charon_status = self.get_delivery_status()
-        # we don't care if delivery is not in progress
+        # Skip if status is not in progress
         if charon_status != 'IN_PROGRESS':
             logger.info("Project {} has no delivery token. Project is not being delivered at the moment".format(self.projectid))
             return
@@ -101,8 +101,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
-        except Exception as e:
-            logger.error('Could not release project {}, an error occurred: {}'.format(self.projectid, e))
+        except Exception as e:  #TODO: catch specific errors instead
+            logger.exception('Could not release project {}, an error occurred'.format(self.projectid))
             delivery_status = 'FAILED'
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
             # Fetch all samples that were under delivery and update their status in charon
@@ -111,9 +111,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 try:
                     sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.update_delivery_status(status=delivery_status)
-                except Exception as e:
-                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
-                    logger.exception(e)
+                except Exception as e:  #TODO: catch specific errors instead
+                    logger.exception('Sample {}: Problems in setting sample status on charon.'.format(sample_id))
             # Reset delivery in charon
             self.delete_delivery_token_in_charon()
             # If all samples in charon are DELIVERED or ABORTED, then the whole project is DELIVERED
@@ -125,9 +124,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                         continue
                     if sample_deliverer.get_delivery_status() != 'DELIVERED':
                         all_samples_delivered = False
-                except Exception as e:
-                    logger.error('Sample {}: Problems in setting sample status on charon. Error: {}'.format(sample_id, e))
-                    logger.exception(e)
+                except Exception as e:  #TODO: catch specific errors instead
+                    logger.exception('Sample {}: Problems in setting sample status on charon.'.format(sample_id))
             if all_samples_delivered:
                 self.update_delivery_status(status=delivery_status)
 
@@ -180,13 +178,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
         # Connect to charon, return list of sample objects that have been staged
         try:
             samples_to_deliver = self.get_samples_from_charon(delivery_status="STAGED")
-        except Exception as e:
-            logger.error("Cannot get samples from Charon. Error says: {}".format(str(e)))
-            logger.exception(e)
+        except Exception as e:  #TODO: catch specific errors instead
+            logger.exception("Cannot get samples from Charon.")
             raise e
         if len(samples_to_deliver) == 0:
             logger.warning('No staged samples found in Charon')
-            raise AssertionError('No staged samples found in Charon')
+            raise AssertionError('No staged samples found in Charon')  #TODO: catch error raised by get_samples_from_charon instead?
 
         # Collect other files (not samples) if any
         misc_to_deliver = [itm for itm in os.listdir(soft_stagepath) if os.path.splitext(itm)[0] not in samples_to_deliver]
@@ -211,9 +208,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                 sample_deliverer.update_sample_status()
             except Exception as e:
-                logger.error('Sample status for {} has not been updated in Charon. '
-                             'Error says: {}'.format(sample_id, e))
-                logger.exception(e)
+                logger.exception('Sample status for {} has not been updated in Charon.'.format(sample_id))
                 raise e
             else:
                 samples_in_progress.append(sample_id)
@@ -231,20 +226,20 @@ class DDSProjectDeliverer(ProjectDeliverer):
             # Save all delivery projects in charon
             self.add_dds_name_delivery_in_charon(dds_name_of_delivery)
             self.add_dds_name_delivery_in_statusdb(dds_name_of_delivery)
-            logger.info("Delivery status for project {}, delivery project {} is {}".format(self.projectid,
-                                                                                    dds_name_of_delivery,
-                                                                                    delivery_status))
+            logger.info("Delivery status for project {}, "
+                        "delivery project {} is {}".format(self.projectid,
+                                                            dds_name_of_delivery,
+                                                            delivery_status))
             for sample_id in samples_to_deliver:
                 try:
                     sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.save_delivery_token_in_charon(delivery_status)
                     sample_deliverer.add_dds_name_delivery_in_charon(dds_name_of_delivery)
                 except Exception as e:
-                    logger.error('Failed in saving sample infomration for sample {}. Error says: {}'.format(sample_id, e))
-                    logger.exception(e)
+                    logger.exception('Failed in saving sample information for sample {}'.format(sample_id))
         else:
-            logger.error('Something when wrong when uploading data to {} '
-                         'for project {} has not been created'.format(dds_name_of_delivery, self.projectid))
+            logger.error('Something went wrong when uploading data to {} '
+                         'for project {}.'.format(dds_name_of_delivery, self.projectid))
             status = False
 
         return status
@@ -326,9 +321,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.warn('Charon delivery_projects for project {} not updated '
                             'with value {} because the value was already present'.format(self.projectid, name_of_delivery))
         except Exception as e:
-            logger.error('Failed to update delivery_projects in charon while '
-                         'delivering {}. Error says: {}'.format(self.projectid, e))
-            logger.exception(e)
+            logger.exception('Failed to update delivery_projects in charon while '
+                         'delivering {}.'.format(self.projectid))
 
     def add_dds_name_delivery_in_statusdb(self, name_of_delivery):
         """Updates delivery_projects in StatusDB at project level
@@ -349,8 +343,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             status_db.save_db_doc(project_page)
             logger.info('Delivery_projects for project {} updated with value {} in statusdb'.format(self.projectid, name_of_delivery))
         except Exception as e:
-            logger.error('Failed to update delivery_projects in statusdb while delivering {}. Error says: {}'.format(self.projectid, e))
-            logger.exception(e)
+            logger.exception('Failed to update delivery_projects in statusdb while delivering {}.'.format(self.projectid))
 
     def upload_data(self, name_of_delivery):
         """Upload staged sample data with DDS
@@ -365,8 +358,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         try:
             output = subprocess.check_output(cmd).decode('utf-8')
         except subprocess.CalledProcessError as e:
-            logger.error('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
-            logger.exception(e)
+            logger.exception('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
         if "Upload completed!" in output:
             delivery_status = "uploaded"
         return delivery_status
@@ -403,12 +395,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--is_sensitive')
         dds_project_id = ''
         try:
-            output = subprocess.check_output(create_project_cmd).decode("utf-8") #TODO: get more output (stderr=subprocess.STDOUT?)
+            output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8") #TODO: get more output - test this
             project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
             dds_project_id = re.search(project_pattern, output).group()
             logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
         except Exception as e:  #TODO: explicitly handle when new user is added (exit 2)
-            logger.error("An error occurred while setting up the DDS delivery project: {}".format(e))
+            logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
         return dds_project_id
 
@@ -432,7 +424,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
                 logger.info("PI name for project {} found: {}".format(self.projectid, self.pi_name))
             except Exception as e:
-                logger.error("Cannot fetch pi_email and/or name from StatusDB. Error says: {}".format(str(e)))
+                logger.exception("Cannot fetch pi_email and/or name from StatusDB.")
                 raise e
 
     def _set_other_member_details(self, other_member_emails=[], include_owner=False):
@@ -475,8 +467,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 else:
                     short_desc = self.project_desc
                 logger.info("Project description for project {} found: {}".format(self.projectid, short_desc))
-            except Exception as e:
-                    logger.error("Cannot fetch project title and/or description from StatusDB. Error says: {}".format(str(e)))
+            except Exception as e:  #TODO: catch specific exceptions instead
+                    logger.exception("Cannot fetch project title and/or description from StatusDB.")
                     raise e
 
     def _get_order_detail(self):
@@ -520,8 +512,7 @@ class DDSSampleDeliverer(SampleDeliverer):
                     logger.info("{} has not been staged and will not be delivered".format(str(self)))
                     return False
             except DatabaseError as e:
-                logger.error("error '{}' occurred during delivery of {}".format(str(e), str(self)))
-                logger.exception(e)
+                logger.exception("An error occurred during delivery of {}".format(str(self)))
                 raise(e)
             self.update_delivery_status(status="IN_PROGRESS")
         except Exception as e:
@@ -552,5 +543,4 @@ class DDSSampleDeliverer(SampleDeliverer):
                 logger.warn('Charon delivery_projects for sample {} not updated '
                             'with value {} because the value was already present'.format(self.sampleid, name_of_delivery))
         except Exception as e:
-            logger.error('Failed to update delivery_projects in charon while delivering {}. Error says: {}'.format(self.sampleid, e))
-            logger.exception(e)
+            logger.exception('Failed to update delivery_projects in charon while delivering {}.'.format(self.sampleid))
