@@ -112,23 +112,26 @@ def project(ctx, projectid,
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
+        if ctx.parent.params['cluster']:
+            if statusdb_config == None:
+                logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG"
+                             " need to be set to perform {} delivery".format(ctx.parent.params['cluster']))
+                return 1
+            load_yaml_config(statusdb_config.name)
+            if order_portal == None:
+                logger.error("--order-portal or env variable $ORDER_PORTAL"
+                             " need to be set to perform {} delivery".format(ctx.parent.params['cluster']))
+                return 1
+            load_yaml_config(order_portal.name)
         if not ctx.parent.params['cluster']: # Soft stage case
             d = _deliver.ProjectDeliverer(
                 pid,
                 **ctx.parent.params)
         elif ctx.parent.params['cluster'] == 'grus': # Hard stage and deliver to GRUS
-            if statusdb_config == None:
-                logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
-                return 1
-            load_yaml_config(statusdb_config.name)
             if snic_api_credentials == None:
                 logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
                 return 1
             load_yaml_config(snic_api_credentials.name)
-            if order_portal == None:
-                logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
-                return 1
-            load_yaml_config(order_portal.name)
             d = _deliver_grus.GrusProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
@@ -138,14 +141,6 @@ def project(ctx, projectid,
                 fcid=fc_delivery,
                 **ctx.parent.params)
         elif ctx.parent.params['cluster'] == 'dds': # Hard stage and deliver using DDS
-            if statusdb_config == None:
-                logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform DDS delivery")
-                return 1
-            load_yaml_config(statusdb_config.name)
-            if order_portal == None:
-                logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform DDS delivery")
-                return 1
-            load_yaml_config(order_portal.name)
             d = _deliver_dds.DDSProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
