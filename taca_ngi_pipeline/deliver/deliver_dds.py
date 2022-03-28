@@ -392,8 +392,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
             for member in self.other_member_details:
                 create_project_cmd.append('--researcher')
                 create_project_cmd.append(member)
-        if self.sensitive:
-            create_project_cmd.append('--is_sensitive')
+        if not self.sensitive:
+            create_project_cmd.append('--non-sensitive')
         dds_project_id = ''
         try:
             output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8") #TODO: get more output - test this
