@@ -1,5 +1,5 @@
 """
-    Module for controlling deliveries os samples and projects to DDS
+    Module for controlling deliveries of samples and projects to DDS
 """
 import requests
 import os
@@ -62,7 +62,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this project. If a dbentry
-        dict is supplied, it will be used instead of fethcing from database
+        dict is supplied, it will be used instead of fetching from database
 
         :params dbentry: a database entry to use instead of
         fetching from db
@@ -428,7 +428,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 raise e
 
     def _set_other_member_details(self, other_member_emails=[], include_owner=False):
-        """Set other contact details if avilable, this is not mandatory so
+        """Set other contact details if available, this is not mandatory so
         the method will not raise error if it could not find any contact
         """
         self.other_member_details = []
@@ -449,6 +449,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             self.other_member_details = other_member_emails
 
     def _set_project_details(self, given_title=None, given_desc=None):
+        """Set project details, either given or from order portal"""
         self.project_title, self.project_desc = (None, None)
         if given_title:
             logger.warning("Project title for project {} specified by user: {}".format(self.projectid, given_title))
@@ -472,6 +473,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                     raise e
 
     def _get_order_detail(self):
+        """Fetch order details from order portal"""
         status_db = StatusdbSession(self.config_statusdb)
         projects_db = status_db.connection['projects']
         view = projects_db.view('order_portal/ProjectID_to_PortalID')
