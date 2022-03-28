@@ -97,9 +97,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
         
         delivery_status = 'IN_PROGRESS'
         try:
-            cmd = ['dds', 'project', 'status', 'release', 
-                   '--project', dds_project,
-                   '--no-prompt']
+            cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
+                   '--project', dds_project]
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT) #FIXME: check output to make sure release was successful
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
@@ -353,11 +352,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
         stage_dir = self.expand_path(self.stagingpath)
         log_dir = os.path.join(os.path.basename(CONFIG.get('log').get('file')), 'DDS_logs') 
         project_log_dir = os.path.join(log_dir, self.projectid)
-        cmd = ['dds', 'data', 'put', 
+        cmd = ['dds', '--no-prompt', 'data', 'put', 
                '--mount-dir', project_log_dir,
                '--project', name_of_delivery, 
-               '--source', stage_dir,
-               '--no-prompt']
+               '--source', stage_dir]
         try:
             output = subprocess.check_output(cmd).decode('utf-8')
         except subprocess.CalledProcessError as e:
@@ -385,12 +383,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
     def _create_delivery_project(self):
         """Create a DDS delivery project and return the ID
         """
-        create_project_cmd = ['dds', 'project', 'create',
+        create_project_cmd = ['dds', '--no-prompt', 'project', 'create',
                               '--title', self.project_title,
                               '--description', self.project_desc,
                               '--principal-investigator', self.pi_email,
-                              '--owner', self.pi_email,
-                              '--no-prompt']
+                              '--owner', self.pi_email]
         if self.other_member_details:
             for member in self.other_member_details:
                 create_project_cmd.append('--researcher')
