@@ -97,8 +97,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
         
         delivery_status = 'IN_PROGRESS'
         try:
-            cmd = ['dds', 'project', 'status', 'release', '--project', dds_project]
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            cmd = ['dds', 'project', 'status', 'release', 
+                   '--project', dds_project,
+                   '--no-prompt']
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT) #FIXME: check output to make sure release was successful
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
         except Exception as e:  #TODO: catch specific errors instead
@@ -354,7 +356,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
         cmd = ['dds', 'data', 'put', 
                '--mount-dir', project_log_dir,
                '--project', name_of_delivery, 
-               '--source', stage_dir]
+               '--source', stage_dir,
+               '--no-prompt']
         try:
             output = subprocess.check_output(cmd).decode('utf-8')
         except subprocess.CalledProcessError as e:
@@ -386,7 +389,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
                               '--title', self.project_title,
                               '--description', self.project_desc,
                               '--principal-investigator', self.pi_email,
-                              '--owner', self.pi_email]
+                              '--owner', self.pi_email,
+                              '--no-prompt']
         if self.other_member_details:
             for member in self.other_member_details:
                 create_project_cmd.append('--researcher')
@@ -399,7 +403,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
             dds_project_id = re.search(project_pattern, output).group()
             logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
-        except Exception as e:  #TODO: explicitly handle when new user is added (exit 2)
+        except Exception as e:  #FIXME: Check output from dds for errors. Explicitly handle when new user is added (exit 2)
             logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
         return dds_project_id
@@ -454,7 +458,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             try:
                 prj_order = self._get_order_detail()
                 self.project_title = prj_order['title']
-                self.project_desc = prj_order['fields']['project_desc'].replace('\n', '\s')
+                self.project_desc = prj_order['fields']['project_desc'].replace('\n', ' ')
                 logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
                 if len(self.project_desc) > 24:
                     short_desc = self.project_desc[:25] + '...'
