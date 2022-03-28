@@ -75,10 +75,6 @@ def deliver(ctx, deliverypath, stagingpath,
             default=None,
             type=click.STRING,
             help='pi-email, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email')
-@click.option('--pi-name',
-            default=None,
-            type=click.STRING,
-            help='pi-name, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email') 
 @click.option('--sensitive/--no-sensitive',
             default=True,
             help='flag to specify if data contained in the project is sensitive or not')
@@ -105,7 +101,7 @@ def deliver(ctx, deliverypath, stagingpath,
 
 def project(ctx, projectid, 
             snic_api_credentials=None, statusdb_config=None, 
-            order_portal=None, pi_email=None, pi_name=None,
+            order_portal=None, pi_email=None,
             sensitive=True, hard_stage_only=False, 
             add_user=None, fc_delivery=False,
             project_title=None, project_desc=None):
@@ -144,7 +140,6 @@ def project(ctx, projectid,
             d = _deliver_dds.DDSProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
-                pi_name=pi_name,
                 sensitive=sensitive,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,

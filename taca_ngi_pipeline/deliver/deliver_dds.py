@@ -38,7 +38,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples with DDS.
     """
     def __init__(self, projectid=None, sampleid=None, 
-                 pi_email=None, pi_name=None, sensitive=True,
+                 pi_email=None, sensitive=True,
                  add_user=None, fcid=None, do_release=False, 
                  project_title=None, project_description=None,
                  **kwargs):
@@ -54,7 +54,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if self.orderportal is None and not do_release:
             raise AttributeError("Order portal configuration is needed when delivering to DDS")
         if self.orderportal:
-            self._set_pi_details(pi_email, pi_name)
+            self._set_pi_email(pi_email)
             self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
             self._set_project_details(project_title, project_description)
         self.sensitive = sensitive
@@ -385,7 +385,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         create_project_cmd = ['dds', 'project', 'create',
                               '--title', self.project_title,
                               '--description', self.project_desc,
-                              '--principal-investigator', self.pi_name,
+                              '--principal-investigator', self.pi_email,
                               '--owner', self.pi_email]
         if self.other_member_details:
             for member in self.other_member_details:
@@ -404,27 +404,20 @@ class DDSProjectDeliverer(ProjectDeliverer):
             raise e
         return dds_project_id
 
-    def _set_pi_details(self, given_pi_email=None, given_pi_name=None):
+    def _set_pi_email(self, given_pi_email=None):
+        """Set PI email address
         """
-            Set PI email address and PI name using PI email
-        """
-        self.pi_email, self.pi_name = (None, None)
-        # try getting PI email
+        self.pi_email = None
         if given_pi_email:
             logger.warning("PI email for project {} specified by user: {}".format(self.projectid, given_pi_email))
             self.pi_email = given_pi_email
-        if given_pi_name:
-            logger.warning("PI name for project {} specified by user: {}".format(self.projectid, given_pi_name))
-            self.pi_name = given_pi_name
-        if not self.pi_email and not self.pi_name:
+        if not self.pi_email:
             try:
                 prj_order = self._get_order_detail()
                 self.pi_email = prj_order['fields']['project_pi_email']
-                self.pi_name = prj_order['fields']['project_pi_name']
                 logger.info("PI email for project {} found: {}".format(self.projectid, self.pi_email))
-                logger.info("PI name for project {} found: {}".format(self.projectid, self.pi_name))
             except Exception as e:
-                logger.exception("Cannot fetch pi_email and/or name from StatusDB.")
+                logger.exception("Cannot fetch pi_email from StatusDB.")
                 raise e
 
     def _set_other_member_details(self, other_member_emails=[], include_owner=False):
