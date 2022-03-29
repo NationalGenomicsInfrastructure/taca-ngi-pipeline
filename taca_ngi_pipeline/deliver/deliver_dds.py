@@ -99,12 +99,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
         try:
             cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
                    '--project', dds_project]
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT) #FIXME: check output to make sure release was successful
+            process_handle = subprocess.run(cmd)
+            process_handle.check_returncode()
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
             delivery_status = 'DELIVERED'
-        except Exception as e:  #TODO: catch specific errors instead
+        except subprocess.CalledProcessError as e:
             logger.exception('Could not release project {}, an error occurred'.format(self.projectid))
             delivery_status = 'FAILED'
+            raise e
         if delivery_status == 'DELIVERED' or delivery_status == 'FAILED':
             # Fetch all samples that were under delivery and update their status in charon
             in_progress_samples = self.get_samples_from_charon(delivery_status="IN_PROGRESS")
@@ -357,11 +359,15 @@ class DDSProjectDeliverer(ProjectDeliverer):
                '--project', name_of_delivery, 
                '--source', stage_dir]
         try:
-            output = subprocess.check_output(cmd).decode('utf-8')
+            process_handle = subprocess.run(cmd, capture_output=True)
+            process_handle.check_returncode()  # Possibly check .returncode manually instead
         except subprocess.CalledProcessError as e:
             logger.exception('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
-        if "Upload completed!" in output:
+            raise e
+        if "Upload completed!" in process_handle.stdout.decode("utf-8"):
             delivery_status = "uploaded"
+        else:
+            delivery_status = None
         return delivery_status
 
     def get_samples_from_charon(self, delivery_status='STAGED'):
@@ -396,14 +402,21 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--non-sensitive')
         dds_project_id = ''
         try:
-            output = subprocess.check_output(create_project_cmd, stderr=subprocess.STDOUT).decode("utf-8") #TODO: get more output - test this
-            project_pattern = re.compile('ngis\d{5}')  #TODO: print more info to the log (like "User sarasjunnebo was associated with Project ngis00043 as Owner=True. An e-mail notification has not been sent")
-            dds_project_id = re.search(project_pattern, output).group()
-            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output)) #TODO: output is not printed
-        except Exception as e:  #FIXME: Check output from dds for errors. Explicitly handle when new user is added (exit 2)
+            process_handle = subprocess.run(create_project_cmd, capture_output=True)
+            process_handle.check_returncode()  # Possibly check .returncode manually instead
+        except subprocess.CalledProcessError as e:  #FIXME
             logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
-        return dds_project_id
+        output = process_handle.stdout.decode("utf-8")
+        project_pattern = re.compile('ngis\d{5}')
+        found_project = re.search(project_pattern, output)
+        if found_project:
+            dds_project_id = found_project.group()
+            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output))
+            return dds_project_id
+        else:
+            logger.warn("DDS project NOT set up for {}. Info:\n".format(self.projectid, process_handle.stderr.decode("utf-8")))  #TODO: maybe nothing in stderr?
+            return
 
     def _set_pi_email(self, given_pi_email=None):
         """Set PI email address
