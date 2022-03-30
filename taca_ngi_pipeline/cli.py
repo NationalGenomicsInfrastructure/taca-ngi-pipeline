@@ -5,8 +5,9 @@ import logging
 
 from taca.utils.misc import send_mail
 from taca.utils.config import load_yaml_config
-from .deliver import deliver as _deliver
-from .deliver import deliver_grus as _deliver_grus
+from taca_ngi_pipeline.deliver import deliver as _deliver
+from taca_ngi_pipeline.deliver import deliver_grus as _deliver_grus
+from taca_ngi_pipeline.deliver import deliver_dds as _deliver_dds
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
               help="Do not check analysis status upon delivery. To be used only when delivering projects without BP (e.g., WHG)")
 @click.option('--force', is_flag=True, default=False,
               help="Force delivery, even if e.g. analysis has not finished or sample has already been delivered")
-@click.option('--cluster', type=click.Choice(['grus']), # Can be expanded to include future clusters
+@click.option('--cluster', type=click.Choice(['grus', 'dds']), # Can be expanded to include future clusters
               help="Specify to which cluster one wants to deliver")
 @click.option('--generate_xml_and_manifest_files_only', is_flag=True,  default=False,
               help="Explicitly generate xml amd manifest files for ENA submission on a staged project")
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def deliver(ctx, deliverypath, stagingpath, 
             uppnexid, operator, stage_only, 
-            force, cluster, ignore_analysis_status, 
+            force, cluster, ignore_analysis_status,
             generate_xml_and_manifest_files_only):
     """ Deliver methods entry point
     """
@@ -89,28 +90,44 @@ def deliver(ctx, deliverypath, stagingpath,
               default=False,
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
+@click.option('--project-title',
+            default=None,
+            type=click.STRING,
+            help='Project title, to be specified if project not in order portal (DDS only)')
+@click.option('--project-desc',
+            default=None,
+            type=click.STRING,
+            help='Project description, to be specified if project not in order portal (DDS only)')
 
-def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, order_portal=None, pi_email=None, sensitive=True, hard_stage_only=False, add_user=None, fc_delivery=False):
+def project(ctx, projectid, 
+            snic_api_credentials=None, statusdb_config=None, 
+            order_portal=None, pi_email=None,
+            sensitive=True, hard_stage_only=False, 
+            add_user=None, fc_delivery=False,
+            project_title=None, project_desc=None):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
+        if ctx.parent.params['cluster']:
+            if statusdb_config == None:
+                logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG"
+                             " need to be set to perform {} delivery".format(ctx.parent.params['cluster']))
+                return 1
+            load_yaml_config(statusdb_config.name)
+            if order_portal == None:
+                logger.error("--order-portal or env variable $ORDER_PORTAL"
+                             " need to be set to perform {} delivery".format(ctx.parent.params['cluster']))
+                return 1
+            load_yaml_config(order_portal.name)
         if not ctx.parent.params['cluster']: # Soft stage case
             d = _deliver.ProjectDeliverer(
                 pid,
                 **ctx.parent.params)
-        elif ctx.parent.params['cluster'] == 'grus': # Hard stage and deliver
-            if statusdb_config == None:
-                logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
-                return 1
-            load_yaml_config(statusdb_config.name)
+        elif ctx.parent.params['cluster'] == 'grus': # Hard stage and deliver to GRUS
             if snic_api_credentials == None:
                 logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
                 return 1
             load_yaml_config(snic_api_credentials.name)
-            if order_portal == None:
-                logger.error("--order-portal or env variable $ORDER_PORTAL need to be set to perform GRUS delivery")
-                return 1
-            load_yaml_config(order_portal.name)
             d = _deliver_grus.GrusProjectDeliverer(
                 projectid=pid,
                 pi_email=pi_email,
@@ -119,6 +136,18 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
                 **ctx.parent.params)
+        elif ctx.parent.params['cluster'] == 'dds': # Hard stage and deliver using DDS
+            d = _deliver_dds.DDSProjectDeliverer(
+                projectid=pid,
+                pi_email=pi_email,
+                sensitive=sensitive,
+                add_user=list(set(add_user)),
+                fcid=fc_delivery,
+                do_release=False,
+                project_title=project_title,
+                project_description=project_desc,
+                **ctx.parent.params)
+            
 
         if fc_delivery:
             _exec_fn(d, d.deliver_run_folder)
@@ -126,6 +155,7 @@ def project(ctx, projectid, snic_api_credentials=None, statusdb_config=None, ord
             _exec_fn(d, d.deliver_project)
 
 # sample delivery
+#TODO: not used? remove?
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING, nargs=1)
@@ -139,8 +169,11 @@ def sample(ctx, projectid, sampleid):
                 projectid,
                 sid,
                 **ctx.parent.params)
-        elif ctx.parent.params['cluster'] == 'grus': # Hard stage and deliver (not implemented, use project)
+        elif ctx.parent.params['cluster'] == 'grus':
             logger.error("When delivering to grus only project can be specified, not sample")
+            return 1
+        elif ctx.parent.params['cluster'] == 'dds':
+            logger.error("When delivering with DDS only project can be specified, not sample")
             return 1
         _exec_fn(d, d.deliver_sample)
 
@@ -203,3 +236,23 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
                 pid,
                 **ctx.parent.params)
         d.check_mover_delivery_status()
+
+@deliver.command()
+@click.pass_context
+@click.argument('projectid', type=click.STRING)
+@click.option('--dds_project',
+              default=None,
+              type=click.STRING,
+              help='DDS project ID to release')
+
+def release_dds_project(ctx, projectid, dds_project):
+    """Updates DDS delivery status in Charon and releases DDS project to user.
+    """
+    if not dds_project:
+        logger.error('Please specify the DDS project ID to release with --dds_project')
+        return 1
+    d = _deliver_dds.DDSProjectDeliverer(
+        projectid,
+        do_release=True,
+        **ctx.parent.params)
+    d.release_DDS_delivery_project(dds_project)
