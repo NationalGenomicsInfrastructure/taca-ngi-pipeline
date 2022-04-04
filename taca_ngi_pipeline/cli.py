@@ -244,8 +244,12 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
               default=None,
               type=click.STRING,
               help='DDS project ID to release')
+@click.option('--dds_deadline',
+              default=45,
+              type=click.IntRange(1, 90),
+              help='Deadline for DDS project in days [min 1; max 90; default 45]')
 
-def release_dds_project(ctx, projectid, dds_project):
+def release_dds_project(ctx, projectid, dds_project, dds_deadline):
     """Updates DDS delivery status in Charon and releases DDS project to user.
     """
     if not dds_project:
@@ -255,4 +259,4 @@ def release_dds_project(ctx, projectid, dds_project):
         projectid,
         do_release=True,
         **ctx.parent.params)
-    d.release_DDS_delivery_project(dds_project)
+    d.release_DDS_delivery_project(dds_project, dds_deadline)

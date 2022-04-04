@@ -79,7 +79,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def release_DDS_delivery_project(self, dds_project): 
+    def release_DDS_delivery_project(self, dds_project, dds_deadline=45): 
         """ Update charon when data upload is finished and release DDS project to user.
         For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
@@ -98,7 +98,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
         delivery_status = 'IN_PROGRESS'
         try:
             cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
-                   '--project', dds_project]
+                   '--project', dds_project,
+                   '--deadline', dds_deadline]
             process_handle = subprocess.run(cmd)
             process_handle.check_returncode()
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
