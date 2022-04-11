@@ -98,13 +98,18 @@ def deliver(ctx, deliverypath, stagingpath,
             default=None,
             type=click.STRING,
             help='Project description, to be specified if project not in order portal (DDS only)')
+@click.option('--ignore-orderportal-members',
+            is_flag=True,
+            default=False,
+            help='Do not fetch member information from the order portal')
 
 def project(ctx, projectid, 
             snic_api_credentials=None, statusdb_config=None, 
             order_portal=None, pi_email=None,
             sensitive=True, hard_stage_only=False, 
             add_user=None, fc_delivery=False,
-            project_title=None, project_desc=None):
+            project_title=None, project_desc=None,
+            ignore_orderportal_members=False):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
@@ -146,6 +151,7 @@ def project(ctx, projectid,
                 do_release=False,
                 project_title=project_title,
                 project_description=project_desc,
+                ignore_orderportal_members=ignore_orderportal_members,
                 **ctx.parent.params)
             
 

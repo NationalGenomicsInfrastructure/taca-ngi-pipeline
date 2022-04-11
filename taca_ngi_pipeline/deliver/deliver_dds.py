@@ -41,7 +41,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                  pi_email=None, sensitive=True,
                  add_user=None, fcid=None, do_release=False, 
                  project_title=None, project_description=None,
-                 **kwargs):
+                 ignore_orderportal_members=False, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -55,7 +55,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             raise AttributeError("Order portal configuration is needed when delivering to DDS")
         if self.orderportal:
             self._set_pi_email(pi_email)
-            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False), ignore_orderportal_members)
             self._set_project_details(project_title, project_description)
         self.sensitive = sensitive
         self.fcid = fcid
@@ -435,23 +435,25 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.exception("Cannot fetch pi_email from StatusDB.")
                 raise e
 
-    def _set_other_member_details(self, other_member_emails=[], include_owner=False):
+    def _set_other_member_details(self, other_member_emails=[], include_owner=False, ignore_orderportal_members=False):
         """Set other contact details if available, this is not mandatory so
         the method will not raise error if it could not find any contact
         """
         self.other_member_details = []
         # try getting appropriate contact emails
-        try:
-            prj_order = self._get_order_detail()
-            if include_owner:
-                owner_email = prj_order.get('owner', {}).get('email')
-                if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
-                    other_member_emails.append(owner_email)
-            binfo_email = prj_order.get('fields', {}).get('project_bx_email')
-            if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
-                other_member_emails.append(binfo_email)
-        except (AssertionError, ValueError) as e:
-            pass # nothing to worry, just move on
+        if not ignore_orderportal_members:
+            logger.info("Fetching additional members from order portal.")
+            try:
+                prj_order = self._get_order_detail()
+                if include_owner:
+                    owner_email = prj_order.get('owner', {}).get('email')
+                    if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
+                        other_member_emails.append(owner_email)
+                binfo_email = prj_order.get('fields', {}).get('project_bx_email')
+                if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
+                    other_member_emails.append(binfo_email)
+            except (AssertionError, ValueError) as e:
+                pass # nothing to worry, just move on
         if other_member_emails:
             logger.info("Other appropriate contacts were found, they will be added to DDS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
