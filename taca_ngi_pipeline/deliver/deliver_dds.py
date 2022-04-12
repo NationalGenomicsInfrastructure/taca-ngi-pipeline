@@ -353,7 +353,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """Upload staged sample data with DDS
         """
         stage_dir = self.expand_path(self.stagingpath)
-        log_dir = os.path.join(os.path.basename(CONFIG.get('log').get('file')), 'DDS_logs') 
+        log_dir = os.path.join(os.path.dirname(CONFIG.get('log').get('file')), 'DDS_logs') 
         project_log_dir = os.path.join(log_dir, self.projectid)
         cmd = ['dds', '--no-prompt', 'data', 'put', 
                '--mount-dir', project_log_dir,
