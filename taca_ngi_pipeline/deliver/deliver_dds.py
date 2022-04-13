@@ -420,7 +420,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         except subprocess.CalledProcessError as e:
             logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
-        project_pattern = re.compile('ngis\d{5}')  #FIXME: Revert to ngis before commiting!
+        project_pattern = re.compile('ngis\d{5}')
         found_project = re.search(project_pattern, output)
         if found_project:
             dds_project_id = found_project.group()
