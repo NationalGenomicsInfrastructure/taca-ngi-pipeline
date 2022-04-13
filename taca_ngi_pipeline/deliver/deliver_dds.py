@@ -99,7 +99,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         try:
             cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
                    '--project', dds_project,
-                   '--deadline', dds_deadline]
+                   '--deadline', str(dds_deadline)]
             process_handle = subprocess.run(cmd)
             process_handle.check_returncode()
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
@@ -202,9 +202,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         # create a delivery project
         dds_name_of_delivery = ''
-        dds_name_of_delivery = self._create_delivery_project()
-        logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
-            
+        try:
+            dds_name_of_delivery = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
+        except AssertionError as e:
+            logger.exception('Unable to detect DDS delivery project.')
+            raise e
+
         # Update delivery status in Charon
         samples_in_progress = []
         for sample_id in samples_to_deliver:
@@ -278,9 +282,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
                          "exist and that the filenames match the flowcell ID.".format(dst))
 
         delivery_id = ''
-        delivery_id = self._create_delivery_project()
-        logger.info("Delivery project for project {} has been created. "
-                    "Delivery ID is {}".format(self.projectid, delivery_id))
+        try:
+            delivery_id = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. "
+                        "Delivery ID is {}".format(self.projectid, delivery_id))
+        except AssertionError as e:
+            logger.exception('Unable to detect DDS delivery project.')
+            raise e
 
         # Upload with DDS
         dds_delivery_status = self.upload_data(delivery_id)
@@ -360,12 +368,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
                '--project', name_of_delivery, 
                '--source', stage_dir]
         try:
-            process_handle = subprocess.run(cmd, capture_output=True)
-            process_handle.check_returncode()  # Possibly check .returncode manually instead
+            output = ""
+            for line in self._execute(cmd):
+                output += line
+                print(line, end="")
         except subprocess.CalledProcessError as e:
             logger.exception('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
             raise e
-        if "Upload completed!" in process_handle.stdout.decode("utf-8"):
+        if "Upload completed!" in output:
             delivery_status = "uploaded"
         else:
             delivery_status = None
@@ -403,21 +413,20 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--non-sensitive')
         dds_project_id = ''
         try:
-            process_handle = subprocess.run(create_project_cmd, capture_output=True)
-            process_handle.check_returncode()  # Possibly check .returncode manually instead
-        except subprocess.CalledProcessError as e:  #FIXME
+            output = ""
+            for line in self._execute(create_project_cmd):
+                output += line 
+                print(line, end="")
+        except subprocess.CalledProcessError as e:
             logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
-        output = process_handle.stdout.decode("utf-8")
-        project_pattern = re.compile('ngis\d{5}')
+        project_pattern = re.compile('ngis\d{5}')  #FIXME: Revert to ngis before commiting!
         found_project = re.search(project_pattern, output)
         if found_project:
             dds_project_id = found_project.group()
-            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output))
             return dds_project_id
         else:
-            logger.warn("DDS project NOT set up for {}. Info:\n".format(self.projectid, process_handle.stderr.decode("utf-8")))  #TODO: maybe nothing in stderr?
-            return
+            raise AssertionError("DDS project NOT set up for {}".format(self.projectid))
 
     def _set_pi_email(self, given_pi_email=None):
         """Set PI email address
@@ -502,6 +511,18 @@ class DDSProjectDeliverer(ProjectDeliverer):
                                  "project info from the order portal: "
                                  "{} was not 200. Response was: {}".format(portal_id, response.content))
         return json.loads(response.content)
+    
+    def _execute(self, cmd):
+        """Helper function to both capture and print subprocess output.
+        Adapted from https://stackoverflow.com/a/4417735
+        """
+        popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+        for stdout_line in iter(popen.stdout.readline, ""):
+            yield stdout_line
+        popen.stdout.close()
+        return_code = popen.wait()
+        if return_code:
+            raise subprocess.CalledProcessError(return_code, cmd)
 
 
 class DDSSampleDeliverer(SampleDeliverer):
