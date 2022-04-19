@@ -79,7 +79,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def release_DDS_delivery_project(self, dds_project, dds_deadline=45): 
+    def release_DDS_delivery_project(self, dds_project, no_dds_mail, dds_deadline=45): 
         """ Update charon when data upload is finished and release DDS project to user.
         For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
@@ -100,6 +100,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
             cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
                    '--project', dds_project,
                    '--deadline', str(dds_deadline)]
+            if no_dds_mail:
+                cmd.append('--no-mail')
             process_handle = subprocess.run(cmd)
             process_handle.check_returncode()
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
@@ -115,7 +117,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 try:
                     sample_deliverer = DDSSampleDeliverer(self.projectid, sample_id)
                     sample_deliverer.update_delivery_status(status=delivery_status)
-                except Exception as e:  #TODO: catch specific errors instead
+                except Exception as e:
                     logger.exception('Sample {}: Problems in setting sample status on charon.'.format(sample_id))
             # Reset delivery in charon
             self.delete_delivery_token_in_charon()
@@ -128,7 +130,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                         continue
                     if sample_deliverer.get_delivery_status() != 'DELIVERED':
                         all_samples_delivered = False
-                except Exception as e:  #TODO: catch specific errors instead
+                except Exception as e:
                     logger.exception('Sample {}: Problems in setting sample status on charon.'.format(sample_id))
             if all_samples_delivered:
                 self.update_delivery_status(status=delivery_status)
@@ -182,12 +184,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
         # Connect to charon, return list of sample objects that have been staged
         try:
             samples_to_deliver = self.get_samples_from_charon(delivery_status="STAGED")
-        except Exception as e:  #TODO: catch specific errors instead
+        except Exception as e:
             logger.exception("Cannot get samples from Charon.")
             raise e
         if len(samples_to_deliver) == 0:
             logger.warning('No staged samples found in Charon')
-            raise AssertionError('No staged samples found in Charon')  #TODO: catch error raised by get_samples_from_charon instead?
+            raise AssertionError('No staged samples found in Charon')
 
         # Collect other files (not samples) if any
         misc_to_deliver = [itm for itm in os.listdir(soft_stagepath) if os.path.splitext(itm)[0] not in samples_to_deliver]
@@ -487,7 +489,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 else:
                     short_desc = self.project_desc
                 logger.info("Project description for project {} found: {}".format(self.projectid, short_desc))
-            except Exception as e:  #TODO: catch specific exceptions instead
+            except Exception as e:
                     logger.exception("Cannot fetch project title and/or description from StatusDB.")
                     raise e
 
