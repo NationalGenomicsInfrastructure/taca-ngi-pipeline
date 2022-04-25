@@ -98,13 +98,18 @@ def deliver(ctx, deliverypath, stagingpath,
             default=None,
             type=click.STRING,
             help='Project description, to be specified if project not in order portal (DDS only)')
+@click.option('--ignore-orderportal-members',
+            is_flag=True,
+            default=False,
+            help='Do not fetch member information from the order portal')
 
 def project(ctx, projectid, 
             snic_api_credentials=None, statusdb_config=None, 
             order_portal=None, pi_email=None,
             sensitive=True, hard_stage_only=False, 
             add_user=None, fc_delivery=False,
-            project_title=None, project_desc=None):
+            project_title=None, project_desc=None,
+            ignore_orderportal_members=False):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
@@ -146,6 +151,7 @@ def project(ctx, projectid,
                 do_release=False,
                 project_title=project_title,
                 project_description=project_desc,
+                ignore_orderportal_members=ignore_orderportal_members,
                 **ctx.parent.params)
             
 
@@ -244,8 +250,12 @@ def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None
               default=None,
               type=click.STRING,
               help='DDS project ID to release')
+@click.option('--dds_deadline',
+              default=45,
+              type=click.IntRange(1, 90),
+              help='Deadline for DDS project in days [min 1; max 90; default 45]')
 
-def release_dds_project(ctx, projectid, dds_project):
+def release_dds_project(ctx, projectid, dds_project, dds_deadline):
     """Updates DDS delivery status in Charon and releases DDS project to user.
     """
     if not dds_project:
@@ -255,4 +265,4 @@ def release_dds_project(ctx, projectid, dds_project):
         projectid,
         do_release=True,
         **ctx.parent.params)
-    d.release_DDS_delivery_project(dds_project)
+    d.release_DDS_delivery_project(dds_project, dds_deadline)

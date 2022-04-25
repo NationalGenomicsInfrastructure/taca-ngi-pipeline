@@ -41,7 +41,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                  pi_email=None, sensitive=True,
                  add_user=None, fcid=None, do_release=False, 
                  project_title=None, project_description=None,
-                 **kwargs):
+                 ignore_orderportal_members=False, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -55,7 +55,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             raise AttributeError("Order portal configuration is needed when delivering to DDS")
         if self.orderportal:
             self._set_pi_email(pi_email)
-            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False))
+            self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False), ignore_orderportal_members)
             self._set_project_details(project_title, project_description)
         self.sensitive = sensitive
         self.fcid = fcid
@@ -79,7 +79,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def release_DDS_delivery_project(self, dds_project): 
+    def release_DDS_delivery_project(self, dds_project, dds_deadline=45): 
         """ Update charon when data upload is finished and release DDS project to user.
         For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
@@ -98,7 +98,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
         delivery_status = 'IN_PROGRESS'
         try:
             cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
-                   '--project', dds_project]
+                   '--project', dds_project,
+                   '--deadline', str(dds_deadline)]
             process_handle = subprocess.run(cmd)
             process_handle.check_returncode()
             logger.info("Project {} succefully delivered. Delivery project is {}.".format(self.projectid, dds_project))
@@ -201,9 +202,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         # create a delivery project
         dds_name_of_delivery = ''
-        dds_name_of_delivery = self._create_delivery_project()
-        logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
-            
+        try:
+            dds_name_of_delivery = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. Delivery ID is {}".format(self.projectid, dds_name_of_delivery))
+        except AssertionError as e:
+            logger.exception('Unable to detect DDS delivery project.')
+            raise e
+
         # Update delivery status in Charon
         samples_in_progress = []
         for sample_id in samples_to_deliver:
@@ -277,9 +282,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
                          "exist and that the filenames match the flowcell ID.".format(dst))
 
         delivery_id = ''
-        delivery_id = self._create_delivery_project()
-        logger.info("Delivery project for project {} has been created. "
-                    "Delivery ID is {}".format(self.projectid, delivery_id))
+        try:
+            delivery_id = self._create_delivery_project()
+            logger.info("Delivery project for project {} has been created. "
+                        "Delivery ID is {}".format(self.projectid, delivery_id))
+        except AssertionError as e:
+            logger.exception('Unable to detect DDS delivery project.')
+            raise e
 
         # Upload with DDS
         dds_delivery_status = self.upload_data(delivery_id)
@@ -352,19 +361,21 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """Upload staged sample data with DDS
         """
         stage_dir = self.expand_path(self.stagingpath)
-        log_dir = os.path.join(os.path.basename(CONFIG.get('log').get('file')), 'DDS_logs') 
+        log_dir = os.path.join(os.path.dirname(CONFIG.get('log').get('file')), 'DDS_logs') 
         project_log_dir = os.path.join(log_dir, self.projectid)
         cmd = ['dds', '--no-prompt', 'data', 'put', 
                '--mount-dir', project_log_dir,
                '--project', name_of_delivery, 
                '--source', stage_dir]
         try:
-            process_handle = subprocess.run(cmd, capture_output=True)
-            process_handle.check_returncode()  # Possibly check .returncode manually instead
+            output = ""
+            for line in self._execute(cmd):
+                output += line
+                print(line, end="")
         except subprocess.CalledProcessError as e:
             logger.exception('DDS upload failed while uploading {} to {}'.format(stage_dir, name_of_delivery))
             raise e
-        if "Upload completed!" in process_handle.stdout.decode("utf-8"):
+        if "Upload completed!" in output:
             delivery_status = "uploaded"
         else:
             delivery_status = None
@@ -402,21 +413,20 @@ class DDSProjectDeliverer(ProjectDeliverer):
             create_project_cmd.append('--non-sensitive')
         dds_project_id = ''
         try:
-            process_handle = subprocess.run(create_project_cmd, capture_output=True)
-            process_handle.check_returncode()  # Possibly check .returncode manually instead
-        except subprocess.CalledProcessError as e:  #FIXME
+            output = ""
+            for line in self._execute(create_project_cmd):
+                output += line 
+                print(line, end="")
+        except subprocess.CalledProcessError as e:
             logger.exception("An error occurred while setting up the DDS delivery project.")
             raise e
-        output = process_handle.stdout.decode("utf-8")
-        project_pattern = re.compile('ngis\d{5}')
+        project_pattern = re.compile('ngisthlm\d{5}')
         found_project = re.search(project_pattern, output)
         if found_project:
             dds_project_id = found_project.group()
-            logger.info("DDS project successfully set up for {}. Info:\n".format(self.projectid, output))
             return dds_project_id
         else:
-            logger.warn("DDS project NOT set up for {}. Info:\n".format(self.projectid, process_handle.stderr.decode("utf-8")))  #TODO: maybe nothing in stderr?
-            return
+            raise AssertionError("DDS project NOT set up for {}".format(self.projectid))
 
     def _set_pi_email(self, given_pi_email=None):
         """Set PI email address
@@ -434,23 +444,25 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.exception("Cannot fetch pi_email from StatusDB.")
                 raise e
 
-    def _set_other_member_details(self, other_member_emails=[], include_owner=False):
+    def _set_other_member_details(self, other_member_emails=[], include_owner=False, ignore_orderportal_members=False):
         """Set other contact details if available, this is not mandatory so
         the method will not raise error if it could not find any contact
         """
         self.other_member_details = []
         # try getting appropriate contact emails
-        try:
-            prj_order = self._get_order_detail()
-            if include_owner:
-                owner_email = prj_order.get('owner', {}).get('email')
-                if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
-                    other_member_emails.append(owner_email)
-            binfo_email = prj_order.get('fields', {}).get('project_bx_email')
-            if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
-                other_member_emails.append(binfo_email)
-        except (AssertionError, ValueError) as e:
-            pass # nothing to worry, just move on
+        if not ignore_orderportal_members:
+            logger.info("Fetching additional members from order portal.")
+            try:
+                prj_order = self._get_order_detail()
+                if include_owner:
+                    owner_email = prj_order.get('owner', {}).get('email')
+                    if owner_email and owner_email != self.pi_email and owner_email not in other_member_emails:
+                        other_member_emails.append(owner_email)
+                binfo_email = prj_order.get('fields', {}).get('project_bx_email')
+                if binfo_email and binfo_email != self.pi_email and binfo_email not in other_member_emails:
+                    other_member_emails.append(binfo_email)
+            except (AssertionError, ValueError) as e:
+                pass # nothing to worry, just move on
         if other_member_emails:
             logger.info("Other appropriate contacts were found, they will be added to DDS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
@@ -499,6 +511,18 @@ class DDSProjectDeliverer(ProjectDeliverer):
                                  "project info from the order portal: "
                                  "{} was not 200. Response was: {}".format(portal_id, response.content))
         return json.loads(response.content)
+    
+    def _execute(self, cmd):
+        """Helper function to both capture and print subprocess output.
+        Adapted from https://stackoverflow.com/a/4417735
+        """
+        popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+        for stdout_line in iter(popen.stdout.readline, ""):
+            yield stdout_line
+        popen.stdout.close()
+        return_code = popen.wait()
+        if return_code:
+            raise subprocess.CalledProcessError(return_code, cmd)
 
 
 class DDSSampleDeliverer(SampleDeliverer):
