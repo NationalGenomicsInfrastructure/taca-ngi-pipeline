@@ -482,13 +482,13 @@ class GrusProjectDeliverer(ProjectDeliverer):
         password           = self.config_snic.get('snic_api_password')
         supr_date_format = '%Y-%m-%d'
         today = datetime.date.today()
-        two_months_from_now = (today + relativedelta(months=+2))
+        days_from_now = (today + relativedelta(days=+45))
         data = {
             'ngi_project_name': self.projectid,
             'title': "DELIVERY_{}_{}".format(self.projectid, today.strftime(supr_date_format)),
             'pi_id': self.pi_snic_id,
             'start_date': today.strftime(supr_date_format),
-            'end_date': two_months_from_now.strftime(supr_date_format),
+            'end_date': days_from_now.strftime(supr_date_format),
             'continuation_name': '',
             # You can use this field to allocate the size of the delivery
             # 'allocated': size_of_delivery,
