@@ -87,7 +87,6 @@ def deliver(ctx, deliverypath, stagingpath,
             type=click.STRING,
             help='User email address to add in GRUS delivery project. Multiple user can be given by calling parameter multiple times')
 @click.option('--fc-delivery',
-              default=False,
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
 @click.option('--project-title',
