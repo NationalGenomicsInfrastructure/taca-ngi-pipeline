@@ -89,10 +89,6 @@ def deliver(ctx, deliverypath, stagingpath,
 @click.option('--fc-delivery',
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
-@click.option('--project-title',
-            default=None,
-            type=click.STRING,
-            help='Project title, to be specified if project not in order portal (DDS only)')
 @click.option('--project-desc',
             default=None,
             type=click.STRING,
@@ -107,8 +103,7 @@ def project(ctx, projectid,
             order_portal=None, pi_email=None,
             sensitive=True, hard_stage_only=False, 
             add_user=None, fc_delivery=False,
-            project_title=None, project_desc=None,
-            ignore_orderportal_members=False):
+            project_desc=None, ignore_orderportal_members=False):
     """ Deliver the specified projects to the specified destination
     """
     for pid in projectid:
@@ -148,7 +143,6 @@ def project(ctx, projectid,
                 add_user=list(set(add_user)),
                 fcid=fc_delivery,
                 do_release=False,
-                project_title=project_title,
                 project_description=project_desc,
                 ignore_orderportal_members=ignore_orderportal_members,
                 **ctx.parent.params)
