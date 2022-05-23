@@ -40,8 +40,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
     def __init__(self, projectid=None, sampleid=None, 
                  pi_email=None, sensitive=True,
                  add_user=None, fcid=None, do_release=False, 
-                 project_title=None, project_description=None,
-                 ignore_orderportal_members=False, **kwargs):
+                 project_description=None, ignore_orderportal_members=False, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
             sampleid,
@@ -56,7 +55,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         if self.orderportal:
             self._set_pi_email(pi_email)
             self._set_other_member_details(add_user, CONFIG.get('add_project_owner', False), ignore_orderportal_members)
-            self._set_project_details(project_title, project_description)
+            self._set_project_details(projectid, project_description)
         self.sensitive = sensitive
         self.fcid = fcid
         
@@ -469,28 +468,24 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.info("Other appropriate contacts were found, they will be added to DDS delivery project: {}".format(", ".join(other_member_emails)))
             self.other_member_details = other_member_emails
 
-    def _set_project_details(self, given_title=None, given_desc=None):
+    def _set_project_details(self, projectid, given_desc=None):
         """Set project details, either given or from order portal"""
-        self.project_title, self.project_desc = (None, None)
-        if given_title:
-            logger.warning("Project title for project {} specified by user: {}".format(self.projectid, given_title))
-            self.project_title = given_title
+        self.project_title = projectid
+        self.project_desc = None
         if given_desc:
             logger.warning("Project description for project {} specified by user: {}".format(self.projectid, given_desc))
             self.project_desc = given_desc
-        if not self.project_desc or not self.project_title:
+        if not self.project_desc:
             try:
                 prj_order = self._get_order_detail()
-                self.project_title = prj_order['title']
                 self.project_desc = prj_order['fields']['project_desc'].replace('\n', ' ')
-                logger.info("Project title for project {} found: {}".format(self.projectid, self.project_title))
                 if len(self.project_desc) > 24:
                     short_desc = self.project_desc[:25] + '...'
                 else:
                     short_desc = self.project_desc
                 logger.info("Project description for project {} found: {}".format(self.projectid, short_desc))
             except Exception as e:
-                    logger.exception("Cannot fetch project title and/or description from StatusDB.")
+                    logger.exception("Cannot fetch project description from StatusDB.")
                     raise e
 
     def _get_order_detail(self):
