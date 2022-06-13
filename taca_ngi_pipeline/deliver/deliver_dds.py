@@ -37,9 +37,9 @@ def proceed_or_not(question):
 class DDSProjectDeliverer(ProjectDeliverer):
     """ This object takes care of delivering project samples with DDS.
     """
-    def __init__(self, projectid=None, sampleid=None, 
+    def __init__(self, projectid=None, sampleid=None,
                  pi_email=None, sensitive=True,
-                 add_user=None, fcid=None, do_release=False, 
+                 add_user=None, fcid=None, do_release=False,
                  project_description=None, ignore_orderportal_members=False, **kwargs):
         super(DDSProjectDeliverer, self).__init__(
             projectid,
@@ -48,7 +48,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         )
         self.config_statusdb = CONFIG.get('statusdb', None)
         if self.config_statusdb is None and not do_release:
-            raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password, port")
+            raise AttributeError("statusdb configuration is needed when delivering to DDS (url, username, password")
         self.orderportal = CONFIG.get('order_portal', None)
         if self.orderportal is None and not do_release:
             raise AttributeError("Order portal configuration is needed when delivering to DDS")
@@ -58,7 +58,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             self._set_project_details(projectid, project_description)
         self.sensitive = sensitive
         self.fcid = fcid
-        
+
     def get_delivery_status(self, dbentry=None):
         """ Returns the delivery status for this project. If a dbentry
         dict is supplied, it will be used instead of fetching from database
@@ -78,7 +78,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return 'PARTIAL'  # The project underwent a delivery, but not for all the samples
         return 'NOT_DELIVERED'  # The project is not delivered
 
-    def release_DDS_delivery_project(self, dds_project, no_dds_mail, dds_deadline=45): 
+    def release_DDS_delivery_project(self, dds_project, no_dds_mail, dds_deadline=45):
         """ Update charon when data upload is finished and release DDS project to user.
         For this to work on runfolder deliveries, update the delivery status in Charon maually.
         """
@@ -89,14 +89,14 @@ class DDSProjectDeliverer(ProjectDeliverer):
             return
         question = "About to release project {} in DDS delivery project {} to user. Continue? ".format(self.projectid, dds_project)
         if proceed_or_not(question):
-            logger.info("Releasing DDS project {} to user".format(dds_project))  
+            logger.info("Releasing DDS project {} to user".format(dds_project))
         else:
             logger.error("{} delivery has been aborted.".format(str(self)))
             return
-        
+
         delivery_status = 'IN_PROGRESS'
         try:
-            cmd = ['dds', '--no-prompt', 'project', 'status', 'release', 
+            cmd = ['dds', '--no-prompt', 'project', 'status', 'release',
                    '--project', dds_project,
                    '--deadline', str(dds_deadline)]
             if no_dds_mail:
@@ -136,7 +136,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
     def deliver_project(self):
         """ Deliver all samples in a project with DDS
-        
+
         :returns: True if all samples were delivered successfully, False if
         any sample was not properly delivered or ready to be delivered
         """
@@ -146,12 +146,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.info("{} has already been delivered. This project will not "
                         "be delivered again this time.".format(str(self)))
             return True
-        
+
         elif self.get_delivery_status() == 'IN_PROGRESS':
             logger.error("Project {} is already under delivery. "
                          "Multiple deliveries are not allowed".format(self.projectid))
             raise DelivererInterruptedError("Project already under delivery")
-        
+
         elif self.get_delivery_status() == 'PARTIAL':
             logger.warning("{} has already been partially delivered. "
                            "Please confirm you want to proceed.".format(str(self)))
@@ -162,7 +162,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 logger.error("{} has already been partially delivered. "
                              "User decided to not proceed.".format(str(self)))
                 return False
-        
+
         # Check if the sensitive flag has been set in the correct way
         question = ("This project has been marked as SENSITIVE "
         "(option --sensitive). Do you want to proceed with delivery? ")
@@ -176,7 +176,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.error("{} delivery has been aborted. "
                          "Sensitive level was WRONG.".format(str(self)))
             return False
-        
+
         # Now start with the real work
         status = True
 
@@ -261,7 +261,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         path_to_data = self.expand_path(self.datapath)
         runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
         runfolder_md5file = runfolder_archive + ".md5"
-        
+
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
         if not self.sensitive:
             question = "This project has been marked as NON-SENSITIVE (option --no-sensitive). Do you want to proceed with delivery? "
@@ -362,11 +362,11 @@ class DDSProjectDeliverer(ProjectDeliverer):
         """Upload staged sample data with DDS
         """
         stage_dir = self.expand_path(self.stagingpath)
-        log_dir = os.path.join(os.path.dirname(CONFIG.get('log').get('file')), 'DDS_logs') 
+        log_dir = os.path.join(os.path.dirname(CONFIG.get('log').get('file')), 'DDS_logs')
         project_log_dir = os.path.join(log_dir, self.projectid)
-        cmd = ['dds', '--no-prompt', 'data', 'put', 
+        cmd = ['dds', '--no-prompt', 'data', 'put',
                '--mount-dir', project_log_dir,
-               '--project', name_of_delivery, 
+               '--project', name_of_delivery,
                '--source', stage_dir]
         try:
             output = ""
@@ -416,7 +416,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         try:
             output = ""
             for line in self._execute(create_project_cmd):
-                output += line 
+                output += line
                 print(line, end="")
         except subprocess.CalledProcessError as e:
             logger.exception("An error occurred while setting up the DDS delivery project.")
@@ -508,7 +508,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                                  "project info from the order portal: "
                                  "{} was not 200. Response was: {}".format(portal_id, response.content))
         return json.loads(response.content)
-    
+
     def _execute(self, cmd):
         """Helper function to both capture and print subprocess output.
         Adapted from https://stackoverflow.com/a/4417735

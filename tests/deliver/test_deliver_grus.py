@@ -31,52 +31,51 @@ SAMPLECFG = {
              '<STAGINGPATH>']]
         },
     'snic': {
-        'snic_api_url': 'url', 
-        'snic_api_user': 'usr', 
+        'snic_api_url': 'url',
+        'snic_api_user': 'usr',
         'snic_api_password': 'pwd'
         },
     'statusdb': {
         'url': 'sdb_url',
         'username': 'sdb_usr',
-        'password': 'sdb_pwd',
-        'port': 'sdb_port'
+        'password': 'sdb_pwd'
         }
     }
 
 class TestMisc(unittest.TestCase):
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.input')
     def test_proceed_or_not(self, mock_input):
         mock_input.return_value = 'y'
         self.assertTrue(proceed_or_not('Q'))
-        
+
         mock_input.return_value = 'no'
         self.assertFalse(proceed_or_not('Q'))
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.subprocess.check_output')
     def test_check_mover_version(self, mock_output):
         # No pattern match
         mock_output.return_value = 'no match'
         self.assertFalse(check_mover_version())
-        
+
         # Match but wrong version
         mock_output.return_value = '/usr/local/mover/1.0.0/moverinfo version 0.9.0 calling Getopt::Std::getopts (version 1.07),'
         self.assertFalse(check_mover_version())
-        
+
         # Match to right version
         mock_output.return_value = '/usr/local/mover/1.0.0/moverinfo version 1.0.0 calling Getopt::Std::getopts (version 1.07),'
         self.assertTrue(check_mover_version())
-    
-    
+
+
 class TestGrusProjectDeliverer(unittest.TestCase):
-    
+
     @classmethod
     @patch.dict('taca_ngi_pipeline.deliver.deliver_grus.CONFIG', SAMPLECFG)
     def setUpClass(self):
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry', 
+        with patch('taca_ngi_pipeline.utils.database.project_entry',
                    return_value=db_entry) as dbmock:
             self.tmp_dir = tempfile.mkdtemp()
             self.pid = 'P12345'
@@ -89,21 +88,21 @@ class TestGrusProjectDeliverer(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         shutil.rmtree(self.tmp_dir)
-    
+
     def test_get_delivery_status(self):
         dbentry_in_progress = {'delivery_token': 'token'}
         got_status_in_progress = self.deliverer.get_delivery_status(dbentry=dbentry_in_progress)
         self.assertEqual(got_status_in_progress, 'IN_PROGRESS')
-        
+
         dbentry_delivered = {'delivery_token': 'NO-TOKEN',
                              'delivery_status': 'DELIVERED'}
         got_status_delivered = self.deliverer.get_delivery_status(dbentry=dbentry_delivered)
         self.assertEqual(got_status_delivered, 'DELIVERED')
-        
+
         dbentry_partial = {'delivery_projects': 'delivery0123'}
         got_status_partial = self.deliverer.get_delivery_status(dbentry=dbentry_partial)
         self.assertEqual(got_status_partial, 'PARTIAL')
-        
+
         dbentry_not_delivered = {'delivery_token': 'not_under_delivery'}
         got_status_not_delivered = self.deliverer.get_delivery_status(dbentry=dbentry_not_delivered)
         self.assertEqual(got_status_not_delivered, 'NOT_DELIVERED')
@@ -119,11 +118,11 @@ class TestGrusProjectDeliverer(unittest.TestCase):
     def test_check_mover_delivery_status(self,
                                          mock_update_delivery,
                                          mock_update_charon,
-                                         mock_sample_deliverer, 
-                                         mock_samples, 
-                                         mock_sleep, 
-                                         mock_check_output, 
-                                         mock_status, 
+                                         mock_sample_deliverer,
+                                         mock_samples,
+                                         mock_sleep,
+                                         mock_check_output,
+                                         mock_status,
                                          mock_version):
         mock_status.return_value = 'IN_PROGRESS'
         mock_check_output.side_effect = ['Accepted:', 'Delivered:']
@@ -133,7 +132,7 @@ class TestGrusProjectDeliverer(unittest.TestCase):
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry', 
+        with patch('taca_ngi_pipeline.utils.database.project_entry',
                    return_value=db_entry) as dbmock:
             self.deliverer.check_mover_delivery_status()
             mock_update_delivery.assert_called_once_with(status='DELIVERED')
@@ -164,10 +163,10 @@ class TestGrusProjectDeliverer(unittest.TestCase):
         mock_samples.return_value = ['S1']
         mock_create_project.return_value = {'name': 'delivery123'}
         mock_deliver.return_value = 'token123'
-                
+
         os.makedirs(os.path.join(self.tmp_dir, 'STAGING'))
         open(os.path.join(self.tmp_dir, 'STAGING', 'misc_file.txt'), 'w').close()
-        
+
         delivered = self.deliverer.deliver_project()
         self.assertTrue(delivered)
 
@@ -187,8 +186,8 @@ class TestGrusProjectDeliverer(unittest.TestCase):
     def test_add_supr_name_delivery_in_charon(self, mock_charon):
         mock_charon().project_get.return_value = {'delivery_projects': ['delivery123']}
         self.deliverer.add_supr_name_delivery_in_charon('delivery456')
-        mock_charon().project_update.assert_called_once_with(self.pid, 
-                                                             delivery_projects=['delivery123', 
+        mock_charon().project_update.assert_called_once_with(self.pid,
+                                                             delivery_projects=['delivery123',
                                                                                 'delivery456'])
 
     @patch('taca_ngi_pipeline.deliver.deliver_grus.ProjectSummaryConnection')
@@ -196,11 +195,11 @@ class TestGrusProjectDeliverer(unittest.TestCase):
         mock_project_summary().get_entry.return_value = {'delivery_projects': ['delivery123']}
         self.deliverer.add_supr_name_delivery_in_statusdb('delivery456')
         mock_project_summary().save_db_doc.assert_called_once_with(
-            {'delivery_projects': 
+            {'delivery_projects':
                 ['delivery123', 'delivery456']
                 }
             )
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer.expand_path')
     @patch('taca_ngi_pipeline.deliver.deliver_grus.os.chown')
     @patch('taca_ngi_pipeline.deliver.deliver_grus.subprocess')
@@ -209,20 +208,20 @@ class TestGrusProjectDeliverer(unittest.TestCase):
         mock_subprocess.check_output.return_value = 'deliverytoken'
         got_token = self.deliverer.do_delivery('supr_delivery')
         self.assertEqual(got_token, 'deliverytoken')
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.CharonSession')
     def test_get_samples_from_charon(self, mock_charon):
         mock_charon().project_get_samples.return_value = {
-            'samples': 
+            'samples':
                 [{'sampleid': 'S1',
-                  'delivery_status': 'STAGED'}, 
+                  'delivery_status': 'STAGED'},
                  {'sampleid': 'S2',
                   'delivery_status': 'DELIVERED'}]
                 }
         got_samples = self.deliverer.get_samples_from_charon(delivery_status='STAGED')
         expected_samples = ['S1']
         self.assertEqual(got_samples, expected_samples)
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.requests')
     @patch('taca_ngi_pipeline.deliver.deliver_grus.datetime')
     @patch('taca_ngi_pipeline.deliver.deliver_grus.json.loads')
@@ -248,14 +247,14 @@ class TestGrusProjectDeliverer(unittest.TestCase):
             }
         mock_requests.post().status_code = 200
         got_result = self.deliverer._create_delivery_project()
-        calls = [call(), 
+        calls = [call(),
                  call('url/ngi_delivery/project/create/',
                       data=json.dumps(data),
                       auth=('usr', 'pwd'))]
         mock_requests.post.assert_has_calls(calls)
 
     @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer._get_order_detail')
-    @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer._get_user_snic_id')    
+    @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer._get_user_snic_id')
     def test__set_pi_details(self, mock_id, mock_detail):
         mock_detail.return_value = {'fields': {'project_pi_email': 'pi@email.com'}}
         mock_id.return_value = '123'
@@ -287,7 +286,7 @@ class TestGrusProjectDeliverer(unittest.TestCase):
     def test__get_order_detail(self, mock_statusdb):
         with self.assertRaises(AssertionError):
             got_details = self.deliverer._get_order_detail()
-    
+
 
 class TestGrusSampleDeliverer(unittest.TestCase):
 
@@ -296,7 +295,7 @@ class TestGrusSampleDeliverer(unittest.TestCase):
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry', 
+        with patch('taca_ngi_pipeline.utils.database.project_entry',
                    return_value=db_entry) as dbmock:
             self.tmp_dir = tempfile.mkdtemp()
             self.pid = 'P12345'
@@ -305,7 +304,7 @@ class TestGrusSampleDeliverer(unittest.TestCase):
                                                  sampleid=self.sid,
                                                   **SAMPLECFG['deliver'])
             self.deliverer.rootdir = self.tmp_dir
-    
+
     @classmethod
     def tearDownClass(self):
         shutil.rmtree(self.tmp_dir)
@@ -324,9 +323,9 @@ class TestGrusSampleDeliverer(unittest.TestCase):
         self.deliverer.add_supr_name_delivery_in_charon('delivery456')
         mock_charon().sample_update.assert_called_once_with(self.pid,
                                                             self.sid,
-                                                             delivery_projects=['delivery123', 
+                                                             delivery_projects=['delivery123',
                                                                                 'delivery456'])
-    
+
     @patch('taca_ngi_pipeline.deliver.deliver_grus.shutil.copy')
     def test_do_delivery(self, mock_copy):
         os.makedirs(os.path.join(self.tmp_dir, 'STAGING', self.sid))
