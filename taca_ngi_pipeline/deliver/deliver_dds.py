@@ -478,11 +478,10 @@ class DDSProjectDeliverer(ProjectDeliverer):
             self.project_desc = given_desc
         if not self.project_desc:
             try:
-                prj_order = self._get_order_detail()
-                self.project_desc = prj_order['project_name'] + ' (' + datetime.datetime.now().strftime("%Y-%m-%d") + ')'
-                logger.info("Project description for project {} found: {}".format(self.projectid, self.project_desc))
+                self.project_desc = self.projectname + ' (' + datetime.datetime.now().strftime("%Y-%m-%d") + ')'
+                logger.info("Project description for project {}: {}".format(self.projectid, self.project_desc))
             except Exception as e:
-                    logger.exception("Cannot fetch project description from StatusDB.")
+                    logger.exception("Cannot set project description from StatusDB.")
                     raise e
 
     def _get_order_detail(self):
