@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 import re
+import datetime
 
 from ngi_pipeline.database.classes import CharonSession
 from taca.utils.filesystem import create_folder
@@ -476,17 +477,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.warning("Project description for project {} specified by user: {}".format(self.projectid, given_desc))
             self.project_desc = given_desc
         if not self.project_desc:
-            try:
-                prj_order = self._get_order_detail()
-                self.project_desc = prj_order['fields']['project_desc'].replace('\n', ' ')
-                if len(self.project_desc) > 24:
-                    short_desc = self.project_desc[:25] + '...'
-                else:
-                    short_desc = self.project_desc
-                logger.info("Project description for project {} found: {}".format(self.projectid, short_desc))
-            except Exception as e:
-                    logger.exception("Cannot fetch project description from StatusDB.")
-                    raise e
+            self.project_desc = self.projectname + ' (' + datetime.datetime.now().strftime("%Y-%m-%d") + ')'
+            logger.info("Project description for project {}: {}".format(self.projectid, self.project_desc))
 
     def _get_order_detail(self):
         """Fetch order details from order portal"""
