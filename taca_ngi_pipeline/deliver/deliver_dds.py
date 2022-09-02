@@ -477,12 +477,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
             logger.warning("Project description for project {} specified by user: {}".format(self.projectid, given_desc))
             self.project_desc = given_desc
         if not self.project_desc:
-            try:
-                self.project_desc = self.projectname + ' (' + datetime.datetime.now().strftime("%Y-%m-%d") + ')'
-                logger.info("Project description for project {}: {}".format(self.projectid, self.project_desc))
-            except Exception as e:
-                    logger.exception("Cannot set project description from StatusDB.")
-                    raise e
+            self.project_desc = self.projectname + ' (' + datetime.datetime.now().strftime("%Y-%m-%d") + ')'
+            logger.info("Project description for project {}: {}".format(self.projectid, self.project_desc))
 
     def _get_order_detail(self):
         """Fetch order details from order portal"""
