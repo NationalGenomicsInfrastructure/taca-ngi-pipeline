@@ -47,12 +47,12 @@ def gather_files(patterns, no_checksum=False, hash_algorithm="md5"):
                 with open(checksumpath, 'r') as fh:
                     contents = unicode(next(fh))
                     digest = contents.split()[0]
-            except IOError:
+            except (IOError, StopIteration):
                 digest = unicode(hashfile(sourcepath, hasher=hash_algorithm))
                 if not no_digest_cache:
                     try:
                         with open(checksumpath, 'w') as fh:
-                            fh.write(f'{digest}  {path.basename(checksumpath)}')
+                            fh.write(f'{digest}  {path.basename(sourcepath)}')
                     except IOError as we:
                         logger.warning("could not write checksum {} to file {}: {}".format(digest, checksumpath, we))
         return sourcepath, destpath, digest

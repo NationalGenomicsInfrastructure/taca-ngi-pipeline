@@ -680,7 +680,7 @@ class SampleDeliverer(Deliverer):
                     return True
                 if self.get_sample_status(sampleentry) == 'FRESH' \
                         and not self.force:
-                    logger.info("{} is marked as FRESH (new unporcessed data is available)and will not be delivered".format(str(self)))
+                    logger.info("{} is marked as FRESH (new unprocessed data is available) and will not be delivered".format(str(self)))
                     return False
                 if self.get_delivery_status(sampleentry) == 'FAILED':
                     logger.info("retrying delivery of previously failed sample {}".format(str(self)))
