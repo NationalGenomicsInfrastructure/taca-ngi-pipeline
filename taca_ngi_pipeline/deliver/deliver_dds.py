@@ -276,12 +276,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         create_folder(dst)
         try:
-            os.symlink(runfolder_archive, dst)
-            os.symlink(runfolder_md5file, dst)
+            os.symlink(runfolder_archive, os.path.join(dst, self.fcid + ".tar.gz"))
+            os.symlink(runfolder_md5file, os.path.join(dst, self.fcid + ".tar.gz.md5"))
             logger.info("Symlinking files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError as e:
             logger.error("Unable to symlink files to {}. Please check that the files "
-                         "exist and that the filenames match the flowcell ID.".format(dst))
+                         "exist and that the filenames match the flowcell ID. Error: \n {}".format(dst, e))
 
         delivery_id = ''
         try:
