@@ -78,7 +78,7 @@ class xml_generator(object):
                                '\t\t</DATA_BLOCK>\n'
                                '\t</RUN>\n').format(**sample_stat['run'])
             #create manifest files for sample_entry
-            self._generate_manifest_file(sample_stat['experiment'], sample_stat['run'])
+            self._generate_manifest_file(sample_stat['experiment'])
         # wrap in final xml string tags
         experiment_set = (u'<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                           'xsi:noNamespaceSchemaLocation="ftp://ftp.sra.ebi.ac.uk/meta/xsd/sra_1_5/SRA.experiment.xsd">'
@@ -95,7 +95,7 @@ class xml_generator(object):
             exml.write(experiment_set)
             rxml.write(run_set)
 
-    def _generate_manifest_file(self, exp_details, run_details):
+    def _generate_manifest_file(self, exp_details):
         fcontents =  (u'STUDY\t{}\n').format(exp_details['study'])
         fcontents += ('SAMPLE\t{}\n').format(exp_details['discriptor'])
         fcontents += ('NAME\t{}\n').format(exp_details['alias'])
@@ -160,6 +160,8 @@ class xml_generator(object):
                 fc_info["instrument"] = "Illumina MiSeq"
             elif "_A0" in full_run_id:
                 fc_info["instrument"] = "Illumina NovaSeq"
+            elif "_LH" in full_run_id:
+                fc_info["instrument"] = "Illumina NovaSeqXPlus"
             elif "_D0" in full_run_id:
                 fc_info["instrument"] = "Illumina HiSeq 2500"
             elif '_NS' in full_run_id:

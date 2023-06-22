@@ -69,7 +69,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
             raise AttributeError("stagingpathhard is required when delivering to GRUS")
         self.config_snic = CONFIG.get('snic', None)
         if self.config_snic is None:
-            raise AttributeError("snic confoguration is needed  delivering to GRUS (snic_api_url, snic_api_user, snic_api_password")
+            raise AttributeError("snic configuration is needed  delivering to GRUS (snic_api_url, snic_api_user, snic_api_password")
         self.config_statusdb = CONFIG.get('statusdb', None)
         if self.config_statusdb is None:
             raise AttributeError("statusdb configuration is needed  delivering to GRUS (url, username, password")
@@ -624,13 +624,9 @@ class GrusSampleDeliverer(SampleDeliverer):
         # propagate raised errors upwards, they should trigger notification to operator
         # try:
         logger.info("Delivering {} to GRUS with MOVER".format(str(self)))
-        hard_stagepath = self.expand_path(self.stagingpathhard)
-        soft_stagepath = self.expand_path(self.stagingpath)
 
         try:
             logger.info("Trying to deliver {} to GRUS with MOVER".format(str(self)))
-            hard_stagepath = self.expand_path(self.stagingpathhard)
-            soft_stagepath = self.expand_path(self.stagingpath)
             try:
                 if self.get_delivery_status(sampleentry) != 'STAGED':
                     logger.info("{} has not been staged and will not be delivered".format(str(self)))
@@ -642,7 +638,7 @@ class GrusSampleDeliverer(SampleDeliverer):
             #at this point copywith deferance the softlink folder
             self.update_delivery_status(status="IN_PROGRESS")
             self.do_delivery()
-        #in case of faiulure put again the status to STAGED
+        #in case of failure put again the status to STAGED
         except DelivererInterruptedError as e:
             self.update_delivery_status(status="STAGED")
             logger.exception(e)
