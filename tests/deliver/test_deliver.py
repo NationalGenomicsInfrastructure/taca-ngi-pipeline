@@ -2,7 +2,7 @@
 
 import json
 # noinspection PyPackageRequirements
-import mock
+from unittest import mock
 import os
 import shutil
 import signal
@@ -131,26 +131,24 @@ class TestDeliverer(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.deliverer.update_delivery_status()
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession,
-        'project_create',
-        return_value="mocked return value")
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_wrap_database_query(self, dbmock):
+        dbmock().project_create.return_value = "mocked return value"
         self.assertEqual(
             deliver.db._wrap_database_query(
                 deliver.db.dbcon().project_create,
                 "funarg1",
-                funarg2="funarg2"),
+                name="funarg2"),
             "mocked return value")
-        dbmock.assert_called_with(
+        dbmock().project_create.assert_called_with(
             "funarg1",
-            funarg2="funarg2")
-        dbmock.side_effect = db.CharonError("mocked error")
+            name="funarg2")
+        dbmock().project_create.side_effect = db.CharonError("mocked error")
         with self.assertRaises(deliver.db.DatabaseError):
             deliver.db._wrap_database_query(
                 deliver.db.dbcon().project_create,
                 "funarg1",
-                funarg2="funarg2")
+                name="funarg2")
 
     def test_gather_files1(self):
         """ Gather files in the top directory """
@@ -216,7 +214,8 @@ class TestDeliverer(unittest.TestCase):
         checksumfile = "{}.{}".format(
             self.deliverer.expand_path(pattern[0]),
             self.deliverer.hash_algorithm)
-        exp_checksum = u"this checksum should be cached"
+        #this checksum should be cached
+        exp_checksum = u"expectedchecksum"
         with open(checksumfile, 'w') as fh:
             fh.write(exp_checksum)
         for _, _, obs_checksum in self.deliverer.gather_files():
@@ -232,7 +231,7 @@ class TestDeliverer(unittest.TestCase):
             self.assertTrue(os.path.exists(checksumfile),
                             "checksum cache file was not created")
             with open(checksumfile, 'r') as fh:
-                obs_checksum = next(fh)
+                obs_checksum = next(fh).split()[0]
             self.assertEqual(obs_checksum, exp_checksum,
                              "cached and returned checksums did not match")
             os.unlink(checksumfile)
@@ -459,7 +458,7 @@ class TestDeliverer(unittest.TestCase):
             self.assertTrue(os.path.exists(ackfile),
                             "delivery acknowledgement not created")
             with open(ackfile, 'r') as fh:
-                self.assertEquals(t, fh.read().strip(),
+                self.assertEqual(t, fh.read().strip(),
                                   "delivery acknowledgement did not match expectation")
             os.unlink(ackfile)
 
@@ -491,16 +490,15 @@ class TestProjectDeliverer(unittest.TestCase):
             getattr(self, 'deliverer'),
             deliver.ProjectDeliverer)
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession,
-        'project_update',
-        return_value="mocked return value")
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_update_delivery_status(self, dbmock):
         """ Updating the delivery status for a project """
-        self.assertEquals(
+        dbmock().project_update.return_value = "mocked return value"
+        self.assertEqual(
             self.deliverer.update_delivery_status(),
             "mocked return value")
-        dbmock.assert_called_with(
+        dbmock().project_update.assert_called_with(
             self.projectid,
             delivery_status="DELIVERED")
 
@@ -525,34 +523,37 @@ class TestProjectDeliverer(unittest.TestCase):
         self.assertTrue(os.path.exists(ackfile),
                         "delivery acknowledgement not created")
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession, 'project_get', return_value=PROJECTENTRY)
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_get_delivery_status(self, dbmock):
         """ retrieving delivery_status and analysis_status from db """
-        self.assertEquals(
+        dbmock().project_get.return_value = PROJECTENTRY
+        self.assertEqual(
             self.deliverer.get_delivery_status(),
             PROJECTENTRY.get('delivery_status'))
-        dbmock.assert_called_with(PROJECTENTRY['projectid'])
-        self.assertEquals(
+        dbmock().project_get.assert_called_with(PROJECTENTRY['projectid'])
+        self.assertEqual(
             self.deliverer.get_analysis_status(),
             PROJECTENTRY.get('analysis_status'))
-        dbmock.assert_called_with(PROJECTENTRY['projectid'])
+        dbmock().project_get.assert_called_with(PROJECTENTRY['projectid'])
 
     def test_all_samples_delivered(self):
         """ retrieving all_samples_delivered status """
-        with mock.patch.object(deliver.db.db.CharonSession, 'project_get_samples',
-                               return_value=PROJECTENTRY) as dbmock:
+        with mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession) as dbmock:
+            dbmock().project_get_samples.return_value = PROJECTENTRY
             self.assertFalse(
                 self.deliverer.all_samples_delivered(),
                 "all samples should not be listed as delivered")
-            dbmock.assert_called_with(PROJECTENTRY['projectid'])
+            dbmock().project_get_samples.assert_called_with(PROJECTENTRY['projectid'])
         PROJECTENTRY['samples'][0]['delivery_status'] = 'DELIVERED'
-        with mock.patch.object(deliver.db.db.CharonSession, 'project_get_samples',
-                               return_value=PROJECTENTRY) as dbmock:
+        with mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession) as dbmock:
+            dbmock().project_get_samples.return_value = PROJECTENTRY
             self.assertTrue(
                 self.deliverer.all_samples_delivered(),
                 "all samples should not be listed as delivered")
-            dbmock.assert_called_with(PROJECTENTRY['projectid'])
+            dbmock().project_get_samples.assert_called_with(PROJECTENTRY['projectid'])
         PROJECTENTRY['samples'] = [SAMPLEENTRY]
 
     def test_create_project_report(self):
@@ -616,12 +617,13 @@ class TestSampleDeliverer(unittest.TestCase):
             getattr(self, 'deliverer'),
             deliver.SampleDeliverer)
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession, 'project_get', return_value=PROJECTENTRY)
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_fetch_uppnexid(self, dbmock):
         """ A SampleDeliverer should be able to fetch the Uppnex ID for the 
             project
         """
+        dbmock().project_get.return_value = PROJECTENTRY
         # if an uppnexid is given in the configuration, it should be used and the database should not be queried
         deliverer = deliver.SampleDeliverer(
             self.projectid,
@@ -629,31 +631,30 @@ class TestSampleDeliverer(unittest.TestCase):
             rootdir=self.casedir,
             uppnexid="this-is-the-uppnexid",
             **SAMPLECFG['deliver'])
-        self.assertEquals(deliverer.uppnexid, "this-is-the-uppnexid")
+        self.assertEqual(deliverer.uppnexid, "this-is-the-uppnexid")
         #called once due to projectname
-        dbmock.assert_called_once_with(self.projectid)
+        dbmock().project_get.assert_called_once_with(self.projectid)
         # if an uppnexid is not supplied in the config, the database should be consulted
-        dbmock.reset_mock()
+        dbmock().project_get.reset_mock()
         prior = dbmock.call_count
         deliverer = deliver.SampleDeliverer(
             self.projectid,
             self.sampleid,
             rootdir=self.casedir,
             **SAMPLECFG['deliver'])
-        self.assertEquals(deliverer.uppnexid, PROJECTENTRY['uppnex_id'])
+        self.assertEqual(deliverer.uppnexid, PROJECTENTRY['uppnex_id'])
         #two calls, one for projectname one for uppnexid
-        self.assertEquals(dbmock.call_count, 2)
+        self.assertEqual(dbmock().project_get.call_count, 2)
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession,
-        'sample_update',
-        return_value="mocked return value")
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_update_delivery_status(self, dbmock):
         """ Updating the delivery status for a sample """
-        self.assertEquals(
+        dbmock().sample_update.return_value = "mocked return value"
+        self.assertEqual(
             self.deliverer.update_delivery_status(),
             "mocked return value")
-        dbmock.assert_called_with(
+        dbmock().sample_update.assert_called_with(
             self.projectid,
             self.sampleid,
             delivery_status="DELIVERED")
@@ -715,27 +716,29 @@ class TestSampleDeliverer(unittest.TestCase):
         self.assertTrue(os.path.exists(ackfile),
                         "delivery acknowledgement not created")
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession, 'sample_get', return_value="mocked return value")
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_fetch_db_entry(self, dbmock):
         """ retrieving sample entry from db """
-        self.assertEquals(
+        dbmock().sample_get.return_value = "mocked return value"
+        self.assertEqual(
             self.deliverer.db_entry(),
             "mocked return value")
-        dbmock.assert_called_with(self.projectid, self.sampleid)
+        dbmock().sample_get.assert_called_with(self.projectid, self.sampleid)
 
-    @mock.patch.object(
-        deliver.db.db.CharonSession, 'sample_get', return_value=SAMPLEENTRY)
+    @mock.patch('taca_ngi_pipeline.deliver.deliver.db.db.CharonSession', 
+                        autospec=taca_ngi_pipeline.deliver.deliver.db.db.CharonSession)
     def test_get_delivery_status(self, dbmock):
         """ retrieving delivery_status and analysis_status from db """
-        self.assertEquals(
+        dbmock().sample_get.return_value = SAMPLEENTRY
+        self.assertEqual(
             self.deliverer.get_delivery_status(),
             SAMPLEENTRY.get('delivery_status'))
-        dbmock.assert_called_with(self.projectid, SAMPLEENTRY.get('sampleid'))
-        self.assertEquals(
+        dbmock().sample_get.assert_called_with(self.projectid, SAMPLEENTRY.get('sampleid'))
+        self.assertEqual(
             self.deliverer.get_analysis_status(),
             SAMPLEENTRY.get('analysis_status'))
-        dbmock.assert_called_with(self.projectid, SAMPLEENTRY.get('sampleid'))
+        dbmock().sample_get.assert_called_with(self.projectid, SAMPLEENTRY.get('sampleid'))
 
     def test_create_sample_report(self):
         """ creating the sample report """

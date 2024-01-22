@@ -5,7 +5,7 @@ import os
 import filecmp
 
 from couchdb.client import Document
-from mock import Mock, patch
+from unittest.mock import Mock, patch
 
 from taca_ngi_pipeline.utils.nbis_xml_generator import xml_generator
 
@@ -81,9 +81,9 @@ class TestXmlGen(unittest.TestCase):
         mock_collect.return_value = [self.stats]
         self.xgen.generate_xml_and_manifest()
         got_exml = os.path.join(self.outdir, 'P12345_experiments.xml')
-        exp_exml = os.path.join('data', 'P12345_experiments.xml')
+        exp_exml = os.path.join('tests','data', 'P12345_experiments.xml')
         got_rxml = os.path.join(self.outdir, 'P12345_runs.xml')
-        exp_rxml = os.path.join('data', 'P12345_runs.xml')
+        exp_rxml = os.path.join('tests', 'data', 'P12345_runs.xml')
  
         self.assertTrue(filecmp.cmp(got_exml, exp_exml))
         self.assertTrue(filecmp.cmp(got_rxml, exp_rxml))
@@ -97,9 +97,9 @@ class TestXmlGen(unittest.TestCase):
                               'selection': 'sel',
                               'strategy': 'strat',
                               'layout': '<PAIRED></PAIRED>'}
-        self.xgen._generate_manifest_file(experiment_details, 'run_details')
+        self.xgen._generate_manifest_file(experiment_details)
         got_manifest_path = os.path.join(self.outdir, 'manifestFiles', 'P12345_1001_manifest.txt')
-        self.assertTrue(filecmp.cmp(got_manifest_path,'data/P12345_1001_manifest.txt'))
+        self.assertTrue(filecmp.cmp(got_manifest_path,'tests/data/P12345_1001_manifest.txt'))
     
     @patch('taca_ngi_pipeline.utils.nbis_xml_generator.xml_generator._generate_files_block')
     def test__collect_sample_stats(self, mock_blockgen):

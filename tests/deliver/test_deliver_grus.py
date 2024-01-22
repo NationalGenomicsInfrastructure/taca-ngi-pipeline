@@ -4,7 +4,7 @@ import tempfile
 import datetime
 import json
 import os
-from mock import patch, call
+from unittest.mock import patch, call
 from dateutil.relativedelta import relativedelta
 
 from taca_ngi_pipeline.deliver.deliver_grus import GrusProjectDeliverer, GrusSampleDeliverer, proceed_or_not, check_mover_version
@@ -55,15 +55,15 @@ class TestMisc(unittest.TestCase):
     @patch('taca_ngi_pipeline.deliver.deliver_grus.subprocess.check_output')
     def test_check_mover_version(self, mock_output):
         # No pattern match
-        mock_output.return_value = 'no match'
+        mock_output.return_value = b'no match'
         self.assertFalse(check_mover_version())
 
         # Match but wrong version
-        mock_output.return_value = '/usr/local/mover/1.0.0/moverinfo version 0.9.0 calling Getopt::Std::getopts (version 1.07),'
+        mock_output.return_value = b'/usr/local/mover/1.0.0/moverinfo version 0.9.0 calling Getopt::Std::getopts (version 1.07),'
         self.assertFalse(check_mover_version())
 
         # Match to right version
-        mock_output.return_value = '/usr/local/mover/1.0.0/moverinfo version 1.0.0 calling Getopt::Std::getopts (version 1.07),'
+        mock_output.return_value = b'/usr/local/mover/1.0.0/moverinfo version 1.0.0 calling Getopt::Std::getopts (version 1.07),'
         self.assertTrue(check_mover_version())
 
 
@@ -75,8 +75,8 @@ class TestGrusProjectDeliverer(unittest.TestCase):
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry',
-                   return_value=db_entry) as dbmock:
+        with patch('taca_ngi_pipeline.deliver.deliver.db') as dbmock:
+            dbmock.project_entry.return_value=db_entry
             self.tmp_dir = tempfile.mkdtemp()
             self.pid = 'P12345'
             self.deliverer = GrusProjectDeliverer(projectid=self.pid,
@@ -125,15 +125,15 @@ class TestGrusProjectDeliverer(unittest.TestCase):
                                          mock_status,
                                          mock_version):
         mock_status.return_value = 'IN_PROGRESS'
-        mock_check_output.side_effect = ['Accepted:', 'Delivered:']
+        mock_check_output.side_effect = [b'Accepted:', b'Delivered:']
         mock_samples.return_value = ['P12345_1001']
         mock_sample_deliverer().get_delivery_status.return_value = 'DELIVERED'
 
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry',
-                   return_value=db_entry) as dbmock:
+        with patch('taca_ngi_pipeline.deliver.deliver.db') as dbmock:
+            dbmock.project_entry.return_value=db_entry
             self.deliverer.check_mover_delivery_status()
             mock_update_delivery.assert_called_once_with(status='DELIVERED')
 
@@ -205,7 +205,7 @@ class TestGrusProjectDeliverer(unittest.TestCase):
     @patch('taca_ngi_pipeline.deliver.deliver_grus.subprocess')
     def test_do_delivery(self, mock_subprocess, mock_chown, mock_path):
         mock_path.return_value = self.tmp_dir
-        mock_subprocess.check_output.return_value = 'deliverytoken'
+        mock_subprocess.check_output.return_value = b'deliverytoken'
         got_token = self.deliverer.do_delivery('supr_delivery')
         self.assertEqual(got_token, 'deliverytoken')
 
@@ -251,7 +251,8 @@ class TestGrusProjectDeliverer(unittest.TestCase):
                  call('url/ngi_delivery/project/create/',
                       data=json.dumps(data),
                       auth=('usr', 'pwd'))]
-        mock_requests.post.assert_has_calls(calls)
+        actual_calls = list(mock_requests.post.mock_calls)
+        assert actual_calls.sort() == calls.sort()
 
     @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer._get_order_detail')
     @patch('taca_ngi_pipeline.deliver.deliver_grus.GrusProjectDeliverer._get_user_snic_id')
@@ -295,8 +296,8 @@ class TestGrusSampleDeliverer(unittest.TestCase):
         db_entry = {'name': 'S.One_20_01',
                     'uppnex_id': 'a2099999',
                     'delivery_token': 'atoken'}
-        with patch('taca_ngi_pipeline.utils.database.project_entry',
-                   return_value=db_entry) as dbmock:
+        with patch('taca_ngi_pipeline.deliver.deliver.db') as dbmock:
+            dbmock.project_entry.return_value=db_entry
             self.tmp_dir = tempfile.mkdtemp()
             self.pid = 'P12345'
             self.sid = 'P12345_1001'
