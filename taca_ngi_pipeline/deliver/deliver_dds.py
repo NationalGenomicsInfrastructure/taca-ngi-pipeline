@@ -32,7 +32,7 @@ def proceed_or_not(question):
         elif choice in no:
             return False
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no' ")
+            sys.stderr.write("Please respond with 'yes' or 'no' ")
 
 
 class DDSProjectDeliverer(ProjectDeliverer):
@@ -87,13 +87,13 @@ class DDSProjectDeliverer(ProjectDeliverer):
         # Skip if status is not in progress
         if charon_status != 'IN_PROGRESS':
             logger.info("Project {} has no delivery token. Project is not being delivered at the moment".format(self.projectid))
-            return
+            sys.exit(1)
         question = "About to release project {} in DDS delivery project {} to user. Continue? ".format(self.projectid, dds_project)
         if proceed_or_not(question):
             logger.info("Releasing DDS project {} to user".format(dds_project))
         else:
             logger.error("{} delivery has been aborted.".format(str(self)))
-            return
+            sys.exit(1)
 
         delivery_status = 'IN_PROGRESS'
         try:
