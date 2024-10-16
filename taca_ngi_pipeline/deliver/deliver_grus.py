@@ -338,7 +338,7 @@ class GrusProjectDeliverer(ProjectDeliverer):
         #stage the data
         dst = self.expand_path(self.stagingpathhard)
         path_to_data = self.expand_path(self.datapath)
-        runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
+        runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar")
         runfolder_md5file = runfolder_archive + ".md5"
 
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
