@@ -260,7 +260,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
         # Stage the data
         dst = self.expand_path(self.stagingpath)
         path_to_data = self.expand_path(self.datapath)
-        runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar.gz")
+        runfolder_archive = os.path.join(path_to_data, self.fcid + ".tar")
         runfolder_md5file = runfolder_archive + ".md5"
 
         question = "This project has been marked as SENSITIVE (option --sensitive). Do you want to proceed with delivery? "
@@ -276,8 +276,8 @@ class DDSProjectDeliverer(ProjectDeliverer):
 
         create_folder(dst)
         try:
-            os.symlink(runfolder_archive, os.path.join(dst, self.fcid + ".tar.gz"))
-            os.symlink(runfolder_md5file, os.path.join(dst, self.fcid + ".tar.gz.md5"))
+            os.symlink(runfolder_archive, os.path.join(dst, self.fcid + ".tar"))
+            os.symlink(runfolder_md5file, os.path.join(dst, self.fcid + ".tar.md5"))
             logger.info("Symlinking files {} and {} to {}".format(runfolder_archive, runfolder_md5file, dst))
         except IOError as e:
             logger.error("Unable to symlink files to {}. Please check that the files "
