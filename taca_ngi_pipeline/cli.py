@@ -6,7 +6,6 @@ import logging
 from taca.utils.misc import send_mail
 from taca.utils.config import load_yaml_config
 from taca_ngi_pipeline.deliver import deliver as _deliver
-from taca_ngi_pipeline.deliver import deliver_grus as _deliver_grus
 from taca_ngi_pipeline.deliver import deliver_dds as _deliver_dds
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
               help="Do not check analysis status upon delivery. To be used only when delivering projects without BP (e.g., WHG)")
 @click.option('--force', is_flag=True, default=False,
               help="Force delivery, even if e.g. analysis has not finished or sample has already been delivered")
-@click.option('--cluster', type=click.Choice(['grus', 'dds']), # Can be expanded to include future clusters
+@click.option('--cluster', type=click.Choice(['dds']), # Can be expanded to include future clusters
               help="Specify to which cluster one wants to deliver")
 @click.option('--generate_xml_and_manifest_files_only', is_flag=True,  default=False,
               help="Explicitly generate xml amd manifest files for ENA submission on a staged project")
@@ -56,11 +55,6 @@ def deliver(ctx, deliverypath, stagingpath,
 @deliver.command()
 @click.pass_context
 @click.argument('projectid', type=click.STRING, nargs=-1)
-@click.option('--snic-api-credentials',
-            default=None,
-            envvar='SNIC_API_STOCKHOLM',
-            type=click.File('r'),
-            help='Path to SNIC-API credentials to create delivery projects')
 @click.option('--statusdb-config',
             default=None,
             envvar='STATUS_DB_CONFIG',
@@ -74,7 +68,7 @@ def deliver(ctx, deliverypath, stagingpath,
 @click.option('--pi-email',
             default=None,
             type=click.STRING,
-            help='pi-email, to be specified if PI-email stored in statusdb does not correspond SUPR PI-email')
+            help='pi-email, to be specified if PI-email stored in statusdb does not correspond delivery PI-email')
 @click.option('--sensitive/--no-sensitive',
             default=True,
             help='flag to specify if data contained in the project is sensitive or not')
@@ -85,7 +79,7 @@ def deliver(ctx, deliverypath, stagingpath,
 @click.option('--add-user',
             multiple=True,
             type=click.STRING,
-            help='User email address to add in GRUS delivery project. Multiple user can be given by calling parameter multiple times')
+            help='User email address to add in delivery project. Multiple user can be given by calling parameter multiple times')
 @click.option('--fc-delivery',
               type=click.STRING,
               help='Flowcell id for delivering whole Illumnina run folder')
@@ -99,7 +93,7 @@ def deliver(ctx, deliverypath, stagingpath,
             help='Do not fetch member information from the order portal')
 
 def project(ctx, projectid, 
-            snic_api_credentials=None, statusdb_config=None, 
+            statusdb_config=None,
             order_portal=None, pi_email=None,
             sensitive=True, hard_stage_only=False, 
             add_user=None, fc_delivery=False,
@@ -121,19 +115,6 @@ def project(ctx, projectid,
         if not ctx.parent.params['cluster']: # Soft stage case
             d = _deliver.ProjectDeliverer(
                 pid,
-                **ctx.parent.params)
-        elif ctx.parent.params['cluster'] == 'grus': # Hard stage and deliver to GRUS
-            if snic_api_credentials == None:
-                logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
-                return 1
-            load_yaml_config(snic_api_credentials.name)
-            d = _deliver_grus.GrusProjectDeliverer(
-                projectid=pid,
-                pi_email=pi_email,
-                sensitive=sensitive,
-                hard_stage_only=hard_stage_only,
-                add_user=list(set(add_user)),
-                fcid=fc_delivery,
                 **ctx.parent.params)
         elif ctx.parent.params['cluster'] == 'dds': # Hard stage and deliver using DDS
             d = _deliver_dds.DDSProjectDeliverer(
@@ -168,9 +149,6 @@ def sample(ctx, projectid, sampleid):
                 projectid,
                 sid,
                 **ctx.parent.params)
-        elif ctx.parent.params['cluster'] == 'grus':
-            logger.error("When delivering to grus only project can be specified, not sample")
-            return 1
         elif ctx.parent.params['cluster'] == 'dds':
             logger.error("When delivering with DDS only project can be specified, not sample")
             return 1
@@ -202,39 +180,6 @@ def _exec_fn(obj, fn):
             logger.error("processing {} failed - reason: {}, operator {} has been notified".format(
                 str(obj), str(e), obj.config.get('operator')))
 
-
-# check status of ongoing GRUS delivery
-@deliver.command()
-@click.pass_context
-@click.argument('projectid', type=click.STRING, nargs=-1)
-@click.option('--snic-api-credentials',
-			  default=None,
-			  envvar='SNIC_API_STOCKHOLM',
-			  type=click.File('r'),
-			  help='Path to SNIC-API credentials to create delivery projects')
-@click.option('--statusdb-config',
-			  default=None,
-			  envvar='STATUS_DB_CONFIG',
-			  type=click.File('r'),
-			  help='Path to statusdb-configuration')
-
-def check_status(ctx, projectid, snic_api_credentials=None, statusdb_config=None):
-    """In grus delivery mode checks the status of an onggoing delivery
-    """
-    for pid in projectid:
-        if statusdb_config == None:
-            logger.error("--statusdb-config or env variable $STATUS_DB_CONFIG need to be set to perform GRUS delivery")
-            return 1
-        load_yaml_config(statusdb_config.name)
-        if snic_api_credentials == None:
-            logger.error("--snic-api-credentials or env variable $SNIC_API_STOCKHOLM need to be set to perform GRUS delivery")
-            return 1
-        load_yaml_config(snic_api_credentials.name)
-
-        d = _deliver_grus.GrusProjectDeliverer(
-                pid,
-                **ctx.parent.params)
-        d.check_mover_delivery_status()
 
 @deliver.command()
 @click.pass_context

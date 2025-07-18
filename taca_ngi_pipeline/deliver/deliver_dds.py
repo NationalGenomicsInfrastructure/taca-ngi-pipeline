@@ -482,9 +482,12 @@ class DDSProjectDeliverer(ProjectDeliverer):
     def _get_order_detail(self):
         """Fetch order details from order portal"""
         status_db = StatusdbSession(self.config_statusdb)
-        projects_db = status_db.connection['projects']
-        view = projects_db.view('order_portal/ProjectID_to_PortalID')
-        rows = view[self.projectid].rows
+        rows = status_db.connection.post_view(
+            db='projects',
+            ddoc='order_portal',
+            view='ProjectID_to_PortalID',
+            key=self.projectid,
+        ).get_result()["rows"]
         if len(rows) < 1:
             raise AssertionError("Project {} not found in StatusDB".format(self.projectid))
         if len(rows) > 1:
