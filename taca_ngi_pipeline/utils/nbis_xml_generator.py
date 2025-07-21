@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import couchdb
 import os
 import re
 import logging
@@ -27,7 +26,7 @@ class xml_generator(object):
             self.xcon = xcon
             assert self.xcon, "Could not connect to {} database in StatusDB".format("x_flowcells")
             self._check_and_load_project(project)
-            assert isinstance(self.project, couchdb.client.Document), "Could not get proper project document for {} from StatusDB".format(project['project_id'])
+            assert isinstance(self.project, dict), "Could not get proper project document for {} from StatusDB".format(project['project_id'])
             self.samples_delivered = self.project.get('staged_files', {})
             assert self.samples_delivered, "No delivered samples for project {}, cannot generate XML files".format(project['project_id'])
             self._check_and_load_flowcells(flowcells)
@@ -281,7 +280,7 @@ class xml_generator(object):
 
     def _check_and_load_project(self, project):
         """ Get the project document from couchDB if it is not """
-        if isinstance(project, six.string_types):
+        if isinstance(project, str):
             self.LOG.info("Fetching project '{}' from statusDB".format(project))
             project = self.pcon.get_entry(project, use_id_view=True)
         self.project = project
