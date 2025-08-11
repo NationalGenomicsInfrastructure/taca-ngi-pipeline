@@ -1,7 +1,6 @@
 __author__ = 'Pontus'
 
 from ngi_pipeline.database import classes as db
-from datetime import datetime
 
 class DatabaseError(Exception):
     pass
