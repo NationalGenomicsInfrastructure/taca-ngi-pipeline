@@ -492,7 +492,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
             raise AssertionError("Project {} not found in StatusDB".format(self.projectid))
         if len(rows) > 1:
             raise AssertionError('Project {} has more than one entry in orderportal_db'.format(self.projectid))
-        portal_id = rows[0].value
+        portal_id = rows[0]["value"]
         # Get project info from order portal API
         get_project_url = '{}/v1/order/{}'.format(self.orderportal.get('orderportal_api_url'), portal_id)
         headers = {'X-OrderPortal-API-key': self.orderportal.get('orderportal_api_token')}
