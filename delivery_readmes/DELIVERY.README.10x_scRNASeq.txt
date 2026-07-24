@@ -1,0 +1,101 @@
+README
+=======
+
+Many thanks for sequencing your samples with the SciLifeLab National Genomics Infrastructure!
+This README describes the different files present in your data delivery, including information about verifying file integrity and finding results.
+If you have any questions, please don't hesitate to get in touch: support@ngisweden.se
+
+====================================================================
+ProjectID
+====================================================================
+The root folder, which is named by the NGI project ID, contains one report folder, one analysis results folder and a folder for each sample.
+Each sample folder is accompanied by a .lst file containing a list of the files in the folder and a .md5 file containing the MD5-checksums of the files in the folder.
+Use the md5 checksums to verify the integrity of the files after transfer.
+
+├──ProjectID
+   ├── 00-Reports/
+   ├── 01-SC-Analysis/
+   ├── Sample1/
+   ├── Sample1.lst
+   ├── Sample1.md5
+   ├── Sample2/
+   ├── Sample2.lst
+   ├── Sample2.md5
+   ...
+   ...
+   ├── SampleN/
+   ├── SampleN.lst
+   ├── SampleN.md5
+   ├── ACKNOWLEDGEMENTS.txt
+   ├── DELIVERY.README.RNASeq.txt
+   ├── miscellaneous.lst
+   └── miscellaneous.md5
+
+--ACKNOWLEDGEMENTS.txt
+A file describing what to include in any publications using this data.
+
+--miscellaneous.lst
+A list of the files of the delivery, excluding raw data.
+
+--miscellaneous.md5
+A file to check the integrity of the miscellaneous.lst file.
+
+
+File integrity checks
+---------------------
+It is extremely important to check the integrity of the delivered data using the .md5 files. To do this, run the following command in the terminal (replace with the relevant file name):
+
+md5sum -c [checksum_file.md5]
+
+For more information, please see https://ngisweden.scilifelab.se/resources/data-delivery/
+
+
+====================================================================
+ProjectID -> 00-Reports
+====================================================================
+00-Reports folder contains the reports with the sample and sequence QC. It also contains a project summary report and MultiQC reports.
+
+├── 00-Reports/
+    ├── ProjectName_project_summary.html
+    ├── ProjectName_sample_info.txt
+    ├── ProjectName_lane_info.txt
+    ├── ProjectName_library_info.txt
+    ├── ProjectName_multiqc_report.html
+    └── manifestFiles/
+        └── <SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+
+--ProjectName_project_summary.html
+A report summarizing information about the project.
+
+--ProjectName_[sample/lane/library]_info.txt
+Tab-separated text files for each table found in the report, convenient for loading into Excel.
+
+--ProjectName_multiqc_report.html
+Report summarizing general quality statistics based on the bioinformatics tools FastQC and FastQ Screen.
+
+--<SampleID>.02-FASTQ.<flowcell>.<ProjectID>_<BCL-CONVERSION-ID>_<lane-number>_manifest.txt
+A file summarizing the run with information about instruments and library.
+
+
+====================================================================
+ProjectID -> 01-SC-Analysis
+====================================================================
+Contains best practice analysis results from the CellRanger pipeline. Refer to
+https://www.10xgenomics.com/support/software/cell-ranger/8.0/analysis/outputs/cr-outputs-overview for output description.
+
+====================================================================
+ProjectID -> SampleN
+====================================================================
+Each sample directory contains the following subfolders:
+
+├──SampleN/
+   └──02-FASTQ/
+
+--------------------------------------------------------------------
+ProjectID -> SampleN -> 02-FASTQ
+--------------------------------------------------------------------
+Contains a subfolder for each flowcell, which in turn contains the FASTQ files.
+
+├──02-FASTQ/
+   └── <Flowcell>/
+         └── <SampleID>_<BCL-conversion-ID>_<lane-number>_<read-number>_<volume>.fastq.gz

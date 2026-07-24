@@ -1,18 +1,19 @@
-__author__ = 'Pontus'
+__author__ = "Pontus"
 
 from ngi_pipeline.database import classes as db
+
 
 class DatabaseError(Exception):
     pass
 
 
 def _wrap_database_query(query_fn, *query_args, **query_kwargs):
-    """ Wrapper calling the supplied method with the supplied arguments
-        :param query_fn: function reference in the CharonSession class that
-            will be called
-        :returns: the result of the function call
-        :raises DatabaseError:
-            if an error occurred when communicating with the database
+    """Wrapper calling the supplied method with the supplied arguments
+    :param query_fn: function reference in the CharonSession class that
+        will be called
+    :returns: the result of the function call
+    :raises DatabaseError:
+        if an error occurred when communicating with the database
     """
     try:
         return query_fn(*query_args, **query_kwargs)
@@ -21,35 +22,35 @@ def _wrap_database_query(query_fn, *query_args, **query_kwargs):
 
 
 def dbcon():
-    """ Establish a CharonSession
-        :returns: a ngi_pipeline.database.classes.CharonSession instance
+    """Establish a CharonSession
+    :returns: a ngi_pipeline.database.classes.CharonSession instance
     """
     return db.CharonSession()
 
 
 def project_entry(dbc, projectid):
-    """ Fetch a database entry representing the instance's project
-        :returns: a json-formatted database entry
-        :raises DatabaseError:
-            if an error occurred when communicating with the database
+    """Fetch a database entry representing the instance's project
+    :returns: a json-formatted database entry
+    :raises DatabaseError:
+        if an error occurred when communicating with the database
     """
     return _wrap_database_query(dbc.project_get, projectid)
 
 
 def project_sample_entries(dbc, projectid):
-    """ Fetch the database sample entries representing the instance's project
-        :returns: a list of json-formatted database sample entries
-        :raises DatabaseError:
-            if an error occurred when communicating with the database
+    """Fetch the database sample entries representing the instance's project
+    :returns: a list of json-formatted database sample entries
+    :raises DatabaseError:
+        if an error occurred when communicating with the database
     """
     return _wrap_database_query(dbc.project_get_samples, projectid)
 
 
 def sample_entry(dbc, projectid, sampleid):
-    """ Fetch a database entry representing the instance's project
-        :returns: a json-formatted database entry
-        :raises DatabaseError:
-            if an error occurred when communicating with the database
+    """Fetch a database entry representing the instance's project
+    :returns: a json-formatted database entry
+    :raises DatabaseError:
+        if an error occurred when communicating with the database
     """
     return _wrap_database_query(dbc.sample_get, projectid, sampleid)
 
