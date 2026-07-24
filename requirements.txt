@@ -9,3 +9,4 @@ python-dateutil
 pyexcel==0.5.15
 openpyxl==2.6.1
 future
+scilifelab-metadata-templates[genomics] @ git+https://github.com/ScilifelabDataCentre/scilifelab-metadata-templates.git@main
