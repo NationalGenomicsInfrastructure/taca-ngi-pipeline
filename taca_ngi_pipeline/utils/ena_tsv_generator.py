@@ -13,30 +13,31 @@ import logging
 import csv
 from scilifelab_metadata_templates.genomics import validate_genomics_data
 
-#    "study_alias": "", #Optional
-#    "sample_alias": "", #Optional
-#    "instrument_model": "", # Sequencing platform from LIMS
-#    "library_name": "",  #provided by submitter
-#    "library_source": "", #from Project creation form
-#    "library_selection": "", #from Project creation form
-#    "library_strategy": "", #from Project creation form
-#    "library_layout": "", #["SINGLE","PAIRED"]
-#    "insert_size": "", # from Project creation form
-#    "library_construction_protocol": "", # from Project creation form
-#    "file_type": "", #["bam", "cram", "fastq",  "OxfordNanopore_native"]
-#    "file_name": "",#Pxxxx_101_S1_L001_R1_001.fastq.gz
-#    "file_md5": "",
-#    "reverse_file_name": "",#Pxxxx_101_S1_L001_R2_001.fastq.gz
-#    "reverse_file_md5": "",
-#    "scilifelab_unit": "", #"National Genomics Infrastructure" same as citation
-#    "unit_internal_project_id": "", #Pxxxx
-#    "order_id": "", # Order Portal id
-#    "experimental_sample_id": "", #Pxxxxx_101
-#    "associated_sample_id": "", #User defined sample ID
-#    "metadata_file_creation_date": "", #Creation date of the metadata file
-#    "template_name": "genomics_template",
-#    "template_version": "0.0.1" # Version of the scilifelab_metadata_templates template used to generate the metadata file
-
+template = {
+   "study_alias": "", #Optional
+   "sample_alias": "", #Optional
+   "instrument_model": "", # Sequencing platform from LIMS
+   "library_name": "",  #provided by submitter
+   "library_source": "", #from Project creation form
+   "library_selection": "", #from Project creation form
+   "library_strategy": "", #from Project creation form
+   "library_layout": "", #["SINGLE","PAIRED"]
+   "insert_size": "", # from Project creation form
+   "library_construction_protocol": "", # from Project creation form
+   "file_type": "", #["bam", "cram", "fastq",  "OxfordNanopore_native"]
+   "file_name": "",#Pxxxx_101_S1_L001_R1_001.fastq.gz
+   "file_md5": "",
+   #"reverse_file_name": "",#Pxxxx_101_S1_L001_R2_001.fastq.gz, Only for paired end data, to be added later
+   #"reverse_file_md5": "", Only for paired end data, to be added later
+   "scilifelab_unit": "", #"National Genomics Infrastructure" same as citation
+   "unit_internal_project_id": "", #Pxxxx
+   "order_id": "", # Order Portal id
+   "experimental_sample_id": "", #Pxxxxx_101
+   "associated_sample_id": "", #User defined sample ID
+   "metadata_file_creation_date": "", #Creation date of the metadata file
+   "template_name": "genomics_template",
+   "template_version": "0.0.1" # Version of the scilifelab_metadata_templates template used to generate the metadata file
+}
 
 class tsv_generator(object):
     """
@@ -50,28 +51,24 @@ class tsv_generator(object):
         outdir=os.getcwd(),
         flowcells=None,
         LOG=None,
-        couch_conn=None,
-        fc_conn=None,
+        db_conf=None,
     ):
         """Instantiate required objects"""
         self.LOG = LOG
         try:
-            self.couch_conn = couch_conn
-            # assert self.pcon, "Could not connect to {} database in StatusDB".format("project")
-            self.fc_con = fc_conn
+            self.projdb_conn = ProjectSummaryConnection(db_conf)
+            self.fc_con = GenericFlowcellRunConnection(db_conf)
             self._check_and_load_project(project)
             assert isinstance(self.project_doc, dict), (
                 f"Could not get proper project document for {project} from StatusDB"
             )
             self.staged_files = self.project_doc.get("staged_files", {})
             assert self.staged_files, (
-                f"No delivered samples for project {project}, cannot generate tsv files"
+                f"No staged samples for project {project}, cannot generate TSV files"
             )
             self._check_and_load_flowcells(flowcells)
             assert isinstance(self.flowcells, dict), (
-                "Could not get the flowcell for project {} from StatusDB".format(
-                    project["project_id"]
-                )
+                f"Could not get the flowcells for project {self.project_doc['project_id']} from StatusDB"
             )
         except AssertionError as e:
             self.LOG.error(e)
@@ -86,7 +83,7 @@ class tsv_generator(object):
         """Get the project document from couchDB"""
         if isinstance(project, str):
             self.LOG.info(f"Fetching project '{project}' from statusDB")
-            project_doc = self.couch_conn.get_entry(
+            project_doc = self.projdb_conn.get_entry(
                 project, use_id_view=True, db="projects"
             )
         self.project_doc = project_doc
@@ -113,14 +110,12 @@ class tsv_generator(object):
         """Check the given outdir and see if its valid one"""
         if not os.path.exists(outdir):
             self.LOG.info(
-                "Given outdir '{}' does not exist so will create it".format(outdir)
+                f"Given outdir '{outdir}' does not exist so will create it"
             )
             os.makedirs(outdir)
         elif not os.path.isdir(outdir):
-            self.LOG.warn(
-                "Given outdir '{}' is not valid so will use current directory".format(
-                    outdir
-                )
+            self.LOG.warning(
+                f"Given outdir '{outdir}' is not valid so will use current directory"
             )
             outdir = os.getcwd()
         return outdir
@@ -171,6 +166,9 @@ class tsv_generator(object):
             if read1 > 0:
                 if read2 > 0:
                     self.common_details["library_layout"] = "PAIRED"
+                    # Add reverse file name and md5 keys to the template for paired end data
+                    template["reverse_file_name"] = ""
+                    template["reverse_file_md5"] = ""
                 else:
                     self.common_details["library_layout"] = "SINGLE"
             else:
@@ -228,7 +226,7 @@ class tsv_generator(object):
                         )
 
     def generate_tsv_file(self):
-        """Generate tsv file from the string template"""
+        """Generate TSV file from the string template"""
         tsv_file_path = os.path.join(
             self.outdir, f"{self.project_doc['project_id']}_submission.tsv"
         )
@@ -241,74 +239,49 @@ class tsv_generator(object):
         self.LOG.info(f"Generated TSV file at {tsv_file_path}")
         return tsv_file_path
 
-    def _collect_sample_stats(self):
-        """Collect stats that will be used to generate the tsv files"""
-        for sample in sorted(self.samples_delivered.keys()):
-            # all the samples should exist, if not fail right away
-            sample_seq_instrument = self.sample_aggregated_stat[sample]
-            for instrument in sorted(sample_seq_instrument.keys()):
-                inst_stat = sample_seq_instrument[instrument]
-                experiment = {
-                    "alias": "{}_{}_experiment".format(sample, instrument),
-                    "title": "Prep for {} sequenced in {}".format(
-                        sample, inst_stat["xml_text"]
-                    ),
-                    "study": self.project["project_id"],
-                    "design": self.project_design["design"].format(
-                        instrument=inst_stat["xml_text"]
-                    ),
-                    "discriptor": sample,
-                    "library": "{}_prep".format(sample),
-                    "strategy": self.project_design["strategy"],
-                    "source": self.project_design["source"],
-                    "selection": self.project_design["selection"],
-                    "layout": self.project_design["layout"],
-                    "protocol": self.project_design["protocol"],
-                    "instrument": inst_stat["xml_text"],
-                }
-                run = {
-                    "alias": "{}_{}_runs".format(sample, instrument),
-                    "exp_ref": experiment["alias"],
-                    "data_name": sample,
-                    "files": self._generate_files_block(
-                        self.samples_delivered[sample], flowcells=inst_stat["runs"]
-                    ),
-                }
-                yield {"experiment": experiment, "run": run}
+    def validate_tsv_file(self, tsv_file_path):
+        """Validate the generated TSV file against the genomics schema"""
+        validation_errors = validate_genomics_data(tsv_file_path)
+        if validation_errors:
+            self.LOG.error("Validation errors found in the generated TSV file:")
+            for error in validation_errors:
+                self.LOG.error(f"Row {error['row']}: {error['message']}")
+        else:
+            self.LOG.info("No validation errors found in the generated TSV file.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("ena_json_generator.py")
+    parser = argparse.ArgumentParser("ena_tsv_generator.py")
     parser.add_argument(
         "project",
         type=str,
         metavar="<project id>",
-        help="NGI project id for which JSON files are to be generated",
+        help="NGI project id for which TSV files are to be generated",
     )
     parser.add_argument(
         "--outdir",
         type=str,
         default=os.getcwd(),
-        help="Output directory where the JSON files will be saved",
+        help="Output directory where the TSV files will be saved",
+    )
+    parser.add_argument(
+        "--db_conf_path",
+        type=str,
+        default=os.getenv("STATUS_DB_CONFIG"),
+        help="Path to the statusdb configuration file",
     )
     kwargs = vars(parser.parse_args())
-    LOG = logging.getLogger("ena_json_generator")
-    LOG.info("Generating tsv files for project {}".format(kwargs["project"]))
-    with open(os.getenv("STATUS_DB_CONFIG"), "r") as db_cred_file:
+    LOG = logging.getLogger("ena_tsv_generator")
+    LOG.info(f"Generating TSV files for project {kwargs['project']}")
+    with open(kwargs["db_conf_path"], "r") as db_cred_file:
         db_conf = yaml.safe_load(db_cred_file)["statusdb"]
-    pcon = ProjectSummaryConnection(db_conf)
-    fc_con = GenericFlowcellRunConnection(db_conf)
-    jsongen = tsv_generator(
+
+    tsvgen = tsv_generator(
         kwargs["project"],
         LOG=LOG,
         outdir=kwargs["outdir"],
-        couch_conn=pcon,
-        fc_conn=fc_con,
+        db_conf=db_conf,
     )
-    tsv_file_path = jsongen.generate_tsv_file()
-    validation_errors = validate_genomics_data(tsv_file_path)
-    if validation_errors:
-        LOG.error("Validation errors found in the generated TSV file:")
-        for error in validation_errors:
-            LOG.error(f"Row {error['row']}: {error['message']}")
-    LOG.info("Generated tsv files for project {}".format(kwargs["project"]))
+    tsv_file_path = tsvgen.generate_tsv_file()
+    tsvgen.validate_tsv_file(tsv_file_path)
+    LOG.info(f"Generated TSV files for project {kwargs['project']}")
