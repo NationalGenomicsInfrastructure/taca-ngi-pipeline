@@ -241,7 +241,7 @@ class tsv_generator(object):
 
     def validate_tsv_file(self, tsv_file_path):
         """Validate the generated TSV file against the genomics schema"""
-        validation_errors = validate_genomics_data(tsv_file_path)
+        validation_errors = validate_genomics_data(tsv_file_path, None)
         if validation_errors:
             self.LOG.error("Validation errors found in the generated TSV file:")
             for error in validation_errors:
