@@ -23,7 +23,7 @@ from taca.utils.statusdb import (
 from taca.utils import transfer
 from ..utils import database as db
 from ..utils import filesystem as fs
-from ..utils import nbis_xml_generator as xmlgen
+from ..utils.ena_tsv_generator import tsv_generator
 from io import open
 from six.moves import map
 
@@ -512,13 +512,13 @@ class ProjectDeliverer(Deliverer):
             any sample was not properly delivered or ready to be delivered
         """
         try:
-            if getattr(self, "generate_xml_and_manifest_files_only", False):
+            if getattr(self, "generate_ena_tsv_only", False):
                 logger.info(
-                    "XML and manifest files will be generated for staged files in {}".format(
+                    "ENA TSV files will be generated for staged files in {}".format(
                         self.projectid
                     )
                 )
-                self.generate_xml_and_manifest_files()
+                self.generate_ena_tsv_files()
                 return True
             if not self.stage_only:
                 logger.info(
@@ -560,9 +560,9 @@ class ProjectDeliverer(Deliverer):
                         delivered_samples, samples_to_deliver, self.projectid
                     )
                 )
-            # If sthlm, generate xml files
+            # If sthlm, generate ena tsv files
             if self.stage_only and getattr(self, "save_meta_info", False):
-                self.generate_xml_and_manifest_files()
+                self.generate_ena_tsv_files()
             # Atleast one sample should have been staged/delivered for the following steps
             if os.path.exists(self.expand_path(self.stagingpath)):
                 # Try to deliver any miscellaneous files for the project (like reports, analysis)
@@ -605,28 +605,22 @@ class ProjectDeliverer(Deliverer):
         except (db.DatabaseError, DelivererInterruptedError, Exception):
             raise
 
-    def generate_xml_and_manifest_files(self):
-        logger.info("Fetching information for xml generation")
+    def generate_ena_tsv_files(self):
+        logger.info("Fetching information for ENA TSV generation")
         with open(os.getenv("STATUS_DB_CONFIG"), "r") as db_cred_file:
             db_conf = yaml.safe_load(db_cred_file)["statusdb"]
         try:
-            xgen = xmlgen.xml_generator(
-                self.projectid,  # statusdb project
-                outdir=self.expand_path("<ANALYSISPATH>/reports/"),
-                ignore_lib_prep=getattr(
-                    self, "xmlgen_ignore_lib_prep", False
-                ),  # boolean to ignore prep
-                LOG=logger,  # log object for logging
-                pcon=ProjectSummaryConnection(db_conf),  # StatusDB project connection
-                fcon=FlowcellRunMetricsConnection(
-                    db_conf
-                ),  # StatusDB flowcells connection
-                xcon=X_FlowcellRunMetricsConnection(db_conf),
-            )  # StatusDB xflowcells connection
-            xgen.generate_xml_and_manifest()
+            tsvgen = tsv_generator(
+                        self.projectid,
+                        LOG=logger,
+                        outdir=self.expand_path("<ANALYSISPATH>/reports/"),
+                        db_conf=db_conf,
+                    )
+            tsv_file_path = tsvgen.generate_tsv_file()
+            tsvgen.validate_tsv_file(tsv_file_path)
         except Exception as e:
-            logger.warning("Fetching XML information failed due to '{}'".format(e))
-        logger.info("Generated XML files...")
+            logger.warning(f"Generating ENA TSV files failed due to '{e}'")
+        logger.info(f"Generated TSV files for project {self.projectid}")
 
     def update_delivery_status(self, status="DELIVERED"):
         """Update the delivery_status field in the database to the supplied

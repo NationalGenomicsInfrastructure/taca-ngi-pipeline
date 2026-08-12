@@ -59,10 +59,10 @@ logger = logging.getLogger(__name__)
     help="Specify to which cluster one wants to deliver",
 )
 @click.option(
-    "--generate_xml_and_manifest_files_only",
+    "--generate_ena_tsv_only",
     is_flag=True,
     default=False,
-    help="Explicitly generate xml amd manifest files for ENA submission on a staged project",
+    help="Explicitly generate ENA TSV files for submission on a staged project",
 )
 def deliver(
     ctx,
@@ -74,7 +74,7 @@ def deliver(
     force,
     cluster,
     ignore_analysis_status,
-    generate_xml_and_manifest_files_only,
+    generate_ena_tsv_only,
 ):
     """Deliver methods entry point"""
     if deliverypath is None:
