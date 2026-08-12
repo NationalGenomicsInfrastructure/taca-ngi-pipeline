@@ -134,7 +134,7 @@ class tsv_generator(object):
         )
         self.common_details["metadata_file_creation_date"] = str(date.today())
         self.common_details["template_name"] = "genomics_template"
-        self.common_details["template_version"] = "0.0.1"
+        self.common_details["template_version"] = template["template_version"]
 
         proj_details = self.project_doc.get("details", {})
         # get library construction method and parse neccesary information
