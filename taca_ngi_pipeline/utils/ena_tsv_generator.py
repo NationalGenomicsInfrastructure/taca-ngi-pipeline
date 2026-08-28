@@ -14,30 +14,32 @@ import csv
 from scilifelab_metadata_templates.genomics import validate_genomics_data
 
 template = {
-   "study_alias": "", #Optional
-   "sample_alias": "", #Optional
-   "instrument_model": "", # Sequencing platform from LIMS
-   "library_name": "",  #provided by submitter
-   "library_source": "", #from Project creation form
-   "library_selection": "", #from Project creation form
-   "library_strategy": "", #from Project creation form
-   "library_layout": "", #["SINGLE","PAIRED"]
-   "insert_size": "", # from Project creation form
-   "library_construction_protocol": "", # from Project creation form
-   "file_type": "", #["bam", "cram", "fastq",  "OxfordNanopore_native"]
-   "file_name": "",#Pxxxx_101_S1_L001_R1_001.fastq.gz
-   "file_md5": "",
-   #"reverse_file_name": "",#Pxxxx_101_S1_L001_R2_001.fastq.gz, Only for paired end data, to be added later
-   #"reverse_file_md5": "", Only for paired end data, to be added later
-   "scilifelab_unit": "", #"National Genomics Infrastructure" same as citation
-   "unit_internal_project_id": "", #Pxxxx
-   "order_id": "", # Order Portal id
-   "experimental_sample_id": "", #Pxxxxx_101
-   "associated_sample_id": "", #User defined sample ID
-   "metadata_file_creation_date": "", #Creation date of the metadata file
-   "template_name": "genomics_template",
-   "template_version": "0.0.1" # Version of the scilifelab_metadata_templates template used to generate the metadata file
+    "study_alias": "",  # Optional
+    "sample_alias": "",  # Optional
+    "instrument_model": "",  # Sequencing platform from LIMS
+    "library_name": "",  # provided by submitter
+    "library_source": "",  # from Project creation form
+    "library_selection": "",  # from Project creation form
+    "library_strategy": "",  # from Project creation form
+    "library_layout": "",  # ["SINGLE","PAIRED"]
+    "insert_size": "",  # from Project creation form
+    "library_construction_protocol": "",  # from Project creation form
+    "file_type": "",  # ["bam", "cram", "fastq",  "OxfordNanopore_native"]
+    "file_name": "",  # Pxxxx_101_S1_L001_R1_001.fastq.gz
+    "file_md5": "",
+    # "reverse_file_name": "",#Pxxxx_101_S1_L001_R2_001.fastq.gz, Only for paired end data, to be added later
+    # "reverse_file_md5": "", Only for paired end data, to be added later
+    "scilifelab_unit": "",  # "National Genomics Infrastructure" same as citation
+    "unit_internal_project_id": "",  # Pxxxx
+    "order_id": "",  # Order Portal id
+    "experimental_sample_id": "",  # Pxxxxx_101
+    "associated_sample_id": "",  # User defined sample ID
+    "metadata_file_creation_date": "",  # Creation date of the metadata file
+    "template_name": "genomics_template",
+    "template_version": "0.0.1",  # Version of the scilifelab_metadata_templates template used to generate the metadata file
 }
+template_header = list(template.keys())
+
 
 class tsv_generator(object):
     """
@@ -109,9 +111,7 @@ class tsv_generator(object):
     def _check_and_load_outdir(self, outdir):
         """Check the given outdir and see if its valid one"""
         if not os.path.exists(outdir):
-            self.LOG.info(
-                f"Given outdir '{outdir}' does not exist so will create it"
-            )
+            self.LOG.info(f"Given outdir '{outdir}' does not exist so will create it")
             os.makedirs(outdir)
         elif not os.path.isdir(outdir):
             self.LOG.warning(
@@ -160,15 +160,21 @@ class tsv_generator(object):
             + " - Please contact support@ngisweden.se"
         )
         seq_setup = proj_details.get("sequencing_setup", "")
-        seq_setup_match = re.search(r"^(\d+)-(\d+)-(\d+)-(\d+)$", seq_setup)
+        seq_setup_match = re.search(r"^(\d+)-(.+)-(.+)-(\d+)$", seq_setup)
         if seq_setup_match:
-            read1, _, _, read2 = map(int, seq_setup_match.groups())
+            read1, _, _, read2 = seq_setup_match.groups()
+            read1, read2 = int(read1), int(read2)
             if read1 > 0:
                 if read2 > 0:
                     self.common_details["library_layout"] = "PAIRED"
-                    # Add reverse file name and md5 keys to the template for paired end data
-                    template["reverse_file_name"] = ""
-                    template["reverse_file_md5"] = ""
+                    # Add reverse file name and md5 keys to the template header for paired end data
+                    template_header.insert(
+                        template_header.index("file_md5") + 1, "reverse_file_name"
+                    )
+                    template_header.insert(
+                        template_header.index("reverse_file_name") + 1,
+                        "reverse_file_md5",
+                    )
                 else:
                     self.common_details["library_layout"] = "SINGLE"
             else:
@@ -181,6 +187,9 @@ class tsv_generator(object):
                 f"Was not able to fetch sequencing setup from couchdb for project {self.project_doc['project_id']}"
             )
             self.common_details["library_layout"] = "UNKNOWN"
+        self.LOG.info(
+            f"Library layout set as {self.common_details['library_layout']} from sequencing setup {seq_setup}"
+        )
 
     def _load_staged_files(self):
         """Load the staged files for the project and check if they are in expected format"""
@@ -224,6 +233,22 @@ class tsv_generator(object):
                         self.file_pairs_delivered[fastq_name]["reverse_file_md5"] = (
                             file_stats.get("md5_sum", "")
                         )
+                        if self.common_details["library_layout"] != "PAIRED":
+                            self.LOG.error(
+                                f"Found reverse read for sample {sample} but library layout is not set as PAIRED"
+                            )
+                            self.LOG.warning(
+                                f"Setting it to PAIRED for now but please check the output TSV file"
+                            )
+                            self.common_details["library_layout"] = "PAIRED"
+                            template_header.insert(
+                                template_header.index("file_md5") + 1,
+                                "reverse_file_name",
+                            )
+                            template_header.insert(
+                                template_header.index("reverse_file_name") + 1,
+                                "reverse_file_md5",
+                            )
 
     def generate_tsv_file(self):
         """Generate TSV file from the string template"""
@@ -231,7 +256,7 @@ class tsv_generator(object):
             self.outdir, f"{self.project_doc['project_id']}_submission.tsv"
         )
         with open(tsv_file_path, "w", newline="") as tsvfile:
-            writer = csv.DictWriter(tsvfile, fieldnames=template.keys(), delimiter="\t")
+            writer = csv.DictWriter(tsvfile, fieldnames=template_header, delimiter="\t")
             writer.writeheader()
             for file_pair in self.file_pairs_delivered.values():
                 row = {**self.common_details, **file_pair}
