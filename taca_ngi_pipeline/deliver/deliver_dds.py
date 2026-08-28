@@ -536,7 +536,7 @@ class DDSProjectDeliverer(ProjectDeliverer):
                 "An error occurred while setting up the DDS delivery project."
             )
             raise e
-        project_pattern = re.compile("ngisthlm\d{5}")
+        project_pattern = re.compile(r"ngisthlm\d{5}")
         found_project = re.search(project_pattern, output)
         if found_project:
             dds_project_id = found_project.group()
