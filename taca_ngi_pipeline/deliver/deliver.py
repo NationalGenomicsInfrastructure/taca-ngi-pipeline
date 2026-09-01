@@ -611,11 +611,13 @@ class ProjectDeliverer(Deliverer):
             db_conf = yaml.safe_load(db_cred_file)["statusdb"]
         try:
             tsvgen = tsv_generator(
-                        self.projectid,
-                        LOG=logger,
-                        outdir=self.expand_path("<ANALYSISPATH>/reports/"),
-                        db_conf=db_conf,
-                    )
+                self.projectid,
+                LOG=logger,
+                outdir=self.expand_path("<ANALYSISPATH>/reports/"),
+                db_conf=db_conf,
+                log_file_path=self.expand_path("<ANALYSISPATH>"),
+                validation_errors_to_stdout=False,  # Turn this to True when the pipeline is more mature
+            )
             tsv_file_path = tsvgen.generate_tsv_file()
             tsvgen.validate_tsv_file(tsv_file_path)
         except Exception as e:

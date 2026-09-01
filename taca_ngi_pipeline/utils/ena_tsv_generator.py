@@ -54,9 +54,15 @@ class tsv_generator(object):
         flowcells=None,
         LOG=None,
         db_conf=None,
+        log_file_path=None,
+        validation_errors_to_stdout=False,
     ):
         """Instantiate required objects"""
         self.LOG = LOG
+        self.error_log_file = os.path.join(
+            log_file_path, f"{project}_ena_tsv_errors.log"
+        )
+        self.validation_errors_to_stdout = validation_errors_to_stdout
         try:
             self.projdb_conn = ProjectSummaryConnection(db_conf)
             self.fc_con = GenericFlowcellRunConnection(db_conf)
@@ -268,9 +274,19 @@ class tsv_generator(object):
         """Validate the generated TSV file against the genomics schema"""
         validation_errors = validate_genomics_data(tsv_file_path)
         if validation_errors:
-            self.LOG.error("Validation errors found in the generated TSV file:")
-            for error in validation_errors:
-                self.LOG.error(f"Row {error['row']}: {error['message']}")
+            self.LOG.error(
+                f"{len(validation_errors)} validation errors found in the generated TSV file:"
+            )
+            self.LOG.error(
+                "Detailed validation errors by row written to log file: "
+                + self.error_log_file
+            )
+            with open(self.error_log_file, "a") as f:
+                for error in validation_errors:
+                    message = f"Row {error['row']}: {error['message']}"
+                    f.write(message + "\n")
+                    if self.validation_errors_to_stdout:
+                        self.LOG.error(message)
         else:
             self.LOG.info("No validation errors found in the generated TSV file.")
 
@@ -295,6 +311,18 @@ if __name__ == "__main__":
         default=os.getenv("STATUS_DB_CONFIG"),
         help="Path to the statusdb configuration file",
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=os.getcwd(),
+        help="Optional log file path to write errors to. Normal logs are still emitted to stdout.",
+    )
+    parser.add_argument(
+        "--validation-errors-to-stdout",
+        action="store_true",
+        default=False,
+        help="Write detailed validation row errors to stdout too instead of file-only.",
+    )
     kwargs = vars(parser.parse_args())
     LOG = logging.getLogger("ena_tsv_generator")
     LOG.info(f"Generating TSV files for project {kwargs['project']}")
@@ -306,6 +334,8 @@ if __name__ == "__main__":
         LOG=LOG,
         outdir=kwargs["outdir"],
         db_conf=db_conf,
+        log_file_path=kwargs["log_file"],
+        validation_errors_to_stdout=kwargs["validation_errors_to_stdout"],
     )
     tsv_file_path = tsvgen.generate_tsv_file()
     tsvgen.validate_tsv_file(tsv_file_path)
