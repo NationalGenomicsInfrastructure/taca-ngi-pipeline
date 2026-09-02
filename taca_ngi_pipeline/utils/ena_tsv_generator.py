@@ -315,7 +315,7 @@ if __name__ == "__main__":
         "--log-file",
         type=str,
         default=os.getcwd(),
-        help="Optional log file path to write errors to. Normal logs are still emitted to stdout.",
+        help="Optional log file path to write tsv validation errors to. Normal logs are still emitted to stdout.",
     )
     parser.add_argument(
         "--validation-errors-to-stdout",
