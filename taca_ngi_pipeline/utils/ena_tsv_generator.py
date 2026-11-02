@@ -321,7 +321,7 @@ if __name__ == "__main__":
         help="Path to the statusdb configuration file",
     )
     parser.add_argument(
-        "--log-file_path",
+        "--log-file-path",
         type=str,
         default=None,
         help="Optional log file path to write tsv validation errors to. Normal logs are still emitted to stdout.",
