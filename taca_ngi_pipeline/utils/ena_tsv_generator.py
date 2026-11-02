@@ -1,17 +1,16 @@
-#!/usr/bin/env python
-
 import argparse
-from datetime import date
-import yaml
-from taca.utils.statusdb import (
-    ProjectSummaryConnection,
-    GenericFlowcellRunConnection,
-)
+import csv
+import logging
 import os
 import re
-import logging
-import csv
+from datetime import date
+
+import yaml
 from scilifelab_metadata_templates.genomics import validate_genomics_data
+from taca.utils.statusdb import (
+    GenericFlowcellRunConnection,
+    ProjectSummaryConnection,
+)
 
 template = {
     "study_alias": "",  # Optional
@@ -41,7 +40,7 @@ template = {
 template_header = list(template.keys())
 
 
-class tsv_generator(object):
+class tsv_generator:
     """
     A class with class methods to generate run/experiment TSV files
     which user can submit to reads archive with the help of NBIS
@@ -50,7 +49,7 @@ class tsv_generator(object):
     def __init__(
         self,
         project,
-        outdir=os.getcwd(),
+        outdir=None,
         flowcells=None,
         LOG=None,
         db_conf=None,
@@ -78,10 +77,20 @@ class tsv_generator(object):
             assert isinstance(self.flowcells, dict), (
                 f"Could not get the flowcells for project {self.project_doc['project_id']} from StatusDB"
             )
-        except AssertionError as e:
-            self.LOG.error(e)
-            raise e
+        except AssertionError:
+            self.LOG.exception()
+            raise
         self.samples = self.project_doc.get("samples", {})
+        if len(self.staged_files.keys() - self.samples.keys()) > 0:
+            self.LOG.warning(
+                f"Staged samples contain samples not in project samples for project {self.project_doc['project_id']}, "
+                f"adding them to the samples list with empty details"
+            )
+            for sample in self.staged_files.keys() - self.samples.keys():
+                self.LOG.warning(
+                    f"Adding sample {sample} to the samples list with empty details"
+                )
+                self.samples[sample] = {}
         self.file_pairs_delivered = {}
         self.outdir = self._check_and_load_outdir(outdir)
         self._set_common_details()
@@ -244,7 +253,7 @@ class tsv_generator(object):
                                 f"Found reverse read for sample {sample} but library layout is not set as PAIRED"
                             )
                             self.LOG.warning(
-                                f"Setting it to PAIRED for now but please check the output TSV file"
+                                "Setting it to PAIRED for now but please check the output TSV file"
                             )
                             self.common_details["library_layout"] = "PAIRED"
                             template_header.insert(
@@ -302,7 +311,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--outdir",
         type=str,
-        default=os.getcwd(),
+        default=None,
         help="Output directory where the TSV files will be saved",
     )
     parser.add_argument(
@@ -312,9 +321,9 @@ if __name__ == "__main__":
         help="Path to the statusdb configuration file",
     )
     parser.add_argument(
-        "--log-file",
+        "--log-file_path",
         type=str,
-        default=os.getcwd(),
+        default=None,
         help="Optional log file path to write tsv validation errors to. Normal logs are still emitted to stdout.",
     )
     parser.add_argument(
@@ -329,12 +338,18 @@ if __name__ == "__main__":
     with open(kwargs["db_conf_path"], "r") as db_cred_file:
         db_conf = yaml.safe_load(db_cred_file)["statusdb"]
 
+    curr_dir = os.getcwd()
+    if kwargs["outdir"] is None:
+        kwargs["outdir"] = curr_dir
+    if kwargs["log_file_path"] is None:
+        kwargs["log_file_path"] = curr_dir
+
     tsvgen = tsv_generator(
         kwargs["project"],
         LOG=LOG,
         outdir=kwargs["outdir"],
         db_conf=db_conf,
-        log_file_path=kwargs["log_file"],
+        log_file_path=kwargs["log_file_path"],
         validation_errors_to_stdout=kwargs["validation_errors_to_stdout"],
     )
     tsv_file_path = tsvgen.generate_tsv_file()
