@@ -8,24 +8,21 @@ import json
 import logging
 import os
 import re
-import signal
 import shutil
-import yaml
+import signal
 
+import yaml
+from taca.utils import transfer
 from taca.utils.config import CONFIG
-from taca.utils.filesystem import create_folder, chdir
+from taca.utils.filesystem import chdir, create_folder
 from taca.utils.misc import call_external_command
 from taca.utils.statusdb import (
     ProjectSummaryConnection,
-    FlowcellRunMetricsConnection,
-    X_FlowcellRunMetricsConnection,
 )
-from taca.utils import transfer
+
 from ..utils import database as db
 from ..utils import filesystem as fs
 from ..utils.ena_tsv_generator import tsv_generator
-from io import open
-from six.moves import map
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +45,7 @@ def _signal_handler(sgnal, frame):
         this exception will be raised
     """
     raise DelivererInterruptedError(
-        "interrupt signal {} received while delivering".format(sgnal)
+        f"interrupt signal {sgnal} received while delivering"
     )
 
 
@@ -64,7 +61,7 @@ def _timestamp(days=None):
     return instant[:-9] + "%06.3f" % float(instant[-9:]) + "Z"
 
 
-class Deliverer(object):
+class Deliverer:
     """
     A (abstract) superclass with functionality for handling deliveries
     """
@@ -103,7 +100,7 @@ class Deliverer(object):
             pass
         # only set an attribute for uppnexid if it's actually given or in the db
         try:
-            getattr(self, "uppnexid")
+            self.uppnexid
         except AttributeError:
             try:
                 self.uppnexid = db.project_entry(db.dbcon(), projectid)["uppnex_id"]
@@ -115,7 +112,7 @@ class Deliverer(object):
 
     def __str__(self):
         return (
-            "{}:{}".format(self.projectid, self.sampleid)
+            f"{self.projectid}:{self.sampleid}"
             if self.sampleid is not None
             else self.projectid
         )
@@ -125,15 +122,15 @@ class Deliverer(object):
             ackfile = self.expand_path(
                 os.path.join(
                     self.deliverystatuspath,
-                    "{}_delivered.ack".format(self.sampleid or self.projectid),
+                    f"{self.sampleid or self.projectid}_delivered.ack",
                 )
             )
             create_folder(os.path.dirname(ackfile))
             with open(ackfile, "w") as fh:
-                fh.write("{}\n".format(tstamp))
-        except (AttributeError, IOError) as e:
+                fh.write(f"{tstamp}\n")
+        except (OSError, AttributeError) as e:
             logger.warning(
-                "could not write delivery acknowledgement, reason: {}".format(e)
+                f"could not write delivery acknowledgement, reason: {e}"
             )
 
     def db_entry(self):
@@ -223,18 +220,18 @@ class Deliverer(object):
                         agent.transfer()
                     except (transfer.TransferError, transfer.SymlinkError) as e:
                         logger.warning(
-                            "failed to stage file '{}' when "
-                            "delivering {} - reason: {}".format(src, str(self), e)
+                            f"failed to stage file '{src}' when "
+                            f"delivering {self!s} - reason: {e}"
                         )
 
                     fpath = os.path.relpath(dst, self.expand_path(self.stagingpath))
-                    fh.write("{}\n".format(fpath))
+                    fh.write(f"{fpath}\n")
                     if digest is not None:
-                        dh.write("{}  {}\n".format(digest, fpath))
+                        dh.write(f"{digest}  {fpath}\n")
                 # finally, include the digestfile in the list of files to deliver
-                fh.write("{}\n".format(os.path.basename(digestpath)))
-        except (IOError, fs.FileNotFoundException, fs.PatternNotMatchedException) as e:
-            raise DelivererError("failed to stage delivery - reason: {}".format(e))
+                fh.write(f"{os.path.basename(digestpath)}\n")
+        except (OSError, fs.FileNotFoundException, fs.PatternNotMatchedException) as e:
+            raise DelivererError(f"failed to stage delivery - reason: {e}")
         return True
 
     def do_delivery(self):
@@ -280,7 +277,7 @@ class Deliverer(object):
         """
         return self.expand_path(
             os.path.join(
-                self.stagingpath, "{}.{}".format(self.sampleid, self.hash_algorithm)
+                self.stagingpath, f"{self.sampleid}.{self.hash_algorithm}"
             )
         )
 
@@ -290,7 +287,7 @@ class Deliverer(object):
             after staging
         """
         return self.expand_path(
-            os.path.join(self.stagingpath, "{}.lst".format(self.sampleid))
+            os.path.join(self.stagingpath, f"{self.sampleid}.lst")
         )
 
     def transfer_log(self):
@@ -341,7 +338,7 @@ class Deliverer(object):
                 )
             except AttributeError as e:
                 raise DelivererError(
-                    "the path '{}' could not be expanded - reason: {}".format(path, e)
+                    f"the path '{path}' could not be expanded - reason: {e}"
                 )
 
     def aggregate_meta_info(self):
@@ -362,7 +359,7 @@ class Deliverer(object):
             staging_path = self.expand_path(self.stagingpath)
             hash_files = glob.glob(
                 os.path.join(
-                    staging_path, "{}.{}".format(self.sampleid, self.hash_algorithm)
+                    staging_path, f"{self.sampleid}.{self.hash_algorithm}"
                 )
             )
             curr_time = datetime.datetime.now().__str__()
@@ -384,13 +381,13 @@ class Deliverer(object):
             )
             return True
         except Exception as e:
-            logger.warning("Was not able to update metainfo due to error {}".format(e))
+            logger.warning(f"Was not able to update metainfo due to error {e}")
             return False
 
 
 class ProjectDeliverer(Deliverer):
     def __init__(self, projectid=None, sampleid=None, **kwargs):
-        super(ProjectDeliverer, self).__init__(projectid, sampleid, **kwargs)
+        super().__init__(projectid, sampleid, **kwargs)
 
     def all_samples_delivered(self, sampleentries=None):
         """Checks the delivery status of all project samples
@@ -426,7 +423,7 @@ class ProjectDeliverer(Deliverer):
             call_external_command(
                 cl,
                 with_log_files=(logprefix is not None),
-                prefix="{}_aggregate".format(logprefix),
+                prefix=f"{logprefix}_aggregate",
             )
 
     def copy_report(self):
@@ -452,7 +449,7 @@ class ProjectDeliverer(Deliverer):
 
             if not matches or len(matches) != 1:
                 raise AssertionError(
-                    "Found none of multiple matches for pattern: {}".format(pattern)
+                    f"Found none of multiple matches for pattern: {pattern}"
                 )
             else:
                 return matches[0]
@@ -478,7 +475,7 @@ class ProjectDeliverer(Deliverer):
                 find_from_files_to_deliver(r".*/version_report.txt")
             )
             version_report_file_target = create_target_path(
-                "{}_version_report.txt".format(self.projectid)
+                f"{self.projectid}_version_report.txt"
             )
             shutil.copyfile(version_report_file_src, version_report_file_target)
             files_copied.append(version_report_file_target)
@@ -490,8 +487,8 @@ class ProjectDeliverer(Deliverer):
             logger.warning(e.message)
         except KeyError as e:
             logger.warning(
-                "Could not find specified value in config: {}."
-                "Will not be able to copy the report.".format(e.message)
+                f"Could not find specified value in config: {e.message}."
+                "Will not be able to copy the report."
             )
 
         return files_copied
@@ -514,23 +511,19 @@ class ProjectDeliverer(Deliverer):
         try:
             if getattr(self, "generate_ena_tsv_only", False):
                 logger.info(
-                    "ENA TSV files will be generated for staged files in {}".format(
-                        self.projectid
-                    )
+                    f"ENA TSV files will be generated for staged files in {self.projectid}"
                 )
                 self.generate_ena_tsv_files()
                 return True
             if not self.stage_only:
                 logger.info(
-                    "Delivering {} to {}".format(
-                        str(self), self.expand_path(self.deliverypath)
-                    )
+                    f"Delivering {self!s} to {self.expand_path(self.deliverypath)}"
                 )
             else:
-                logger.info("Staging {}".format(str(self)))
+                logger.info(f"Staging {self!s}")
 
             if self.get_delivery_status() == "DELIVERED" and not self.force:
-                logger.info("{} has already been delivered".format(str(self)))
+                logger.info(f"{self!s} has already been delivered")
                 return True
             # right now, don't catch any errors since we're assuming any thrown
             # errors needs to be handled by manual intervention
@@ -550,15 +543,11 @@ class ProjectDeliverer(Deliverer):
                     delivered_samples += 1
             if self.stage_only:
                 logger.info(
-                    "{}/{} samples have been staged for project {}".format(
-                        delivered_samples, samples_to_deliver, self.projectid
-                    )
+                    f"{delivered_samples}/{samples_to_deliver} samples have been staged for project {self.projectid}"
                 )
             else:
                 logger.info(
-                    "{}/{} samples have been delivered for project {}".format(
-                        delivered_samples, samples_to_deliver, self.projectid
-                    )
+                    f"{delivered_samples}/{samples_to_deliver} samples have been delivered for project {self.projectid}"
                 )
             # If sthlm, generate ena tsv files
             if self.stage_only and getattr(self, "save_meta_info", False):
@@ -576,12 +565,12 @@ class ProjectDeliverer(Deliverer):
                     if self.report_aggregate:
                         logger.info("creating final aggregate report")
                         self.create_report()
-                except AttributeError as e:
+                except AttributeError:
                     pass
                 except Exception as e:
                     logger.warning(
-                        "failed to create final aggregate report for {}, "
-                        "reason: {}".format(self, e)
+                        f"failed to create final aggregate report for {self}, "
+                        f"reason: {e}"
                     )
                     raise e
 
@@ -591,9 +580,7 @@ class ProjectDeliverer(Deliverer):
                         self.copy_report()
                 except Exception as e:
                     logger.warning(
-                        "failed to copy report to report outbox, with reason: {}".format(
-                            e.message
-                        )
+                        f"failed to copy report to report outbox, with reason: {e.message}"
                     )
                 updated_status = "DELIVERED"
                 if self.stage_only:
@@ -618,11 +605,10 @@ class ProjectDeliverer(Deliverer):
                 log_file_path=self.expand_path("<ANALYSISPATH>"),
                 validation_errors_to_stdout=False,  # Turn this to True when the pipeline is more mature
             )
-            tsv_file_path = tsvgen.generate_tsv_file()
-            tsvgen.validate_tsv_file(tsv_file_path)
+            tsv_file_path = tsvgen.generate_and_validate_tsv_file()
         except Exception as e:
             logger.warning(f"Generating ENA TSV files failed due to '{e}'")
-        logger.info(f"Generated TSV files for project {self.projectid}")
+        logger.info(f"Generated TSV files for project {self.projectid}, at {tsv_file_path}")
 
     def update_delivery_status(self, status="DELIVERED"):
         """Update the delivery_status field in the database to the supplied
@@ -640,7 +626,7 @@ class ProjectMiscDeliverer(Deliverer):
     """
 
     def __init__(self, projectid=None, sampleid=None, **kwargs):
-        super(ProjectMiscDeliverer, self).__init__(projectid, sampleid, **kwargs)
+        super().__init__(projectid, sampleid, **kwargs)
         self.files_to_deliver = getattr(self, "misc_files_to_deliver", None)
 
     def staging_digestfile(self):
@@ -649,7 +635,7 @@ class ProjectMiscDeliverer(Deliverer):
         """
         return self.expand_path(
             os.path.join(
-                self.stagingpath, "miscellaneous.{}".format(self.hash_algorithm)
+                self.stagingpath, f"miscellaneous.{self.hash_algorithm}"
             )
         )
 
@@ -662,24 +648,18 @@ class ProjectMiscDeliverer(Deliverer):
     def deliver_misc_data(self):
         if self.files_to_deliver == None:
             logger.info(
-                "No miscellaneous files to deliver for project {}".format(
-                    self.projectid
-                )
+                f"No miscellaneous files to deliver for project {self.projectid}"
             )
             return False
         if not self.stage_delivery():
             logger.warning(
-                "Miscellaneous files were not properly staged for project {}".format(
-                    self.projectid
-                )
+                f"Miscellaneous files were not properly staged for project {self.projectid}"
             )
             return False
         if not self.stage_only:
             if not self.do_delivery():
                 raise DelivererError(
-                    "Miscellaneous files for project {} was not properly delivered".format(
-                        self.projectid
-                    )
+                    f"Miscellaneous files for project {self.projectid} was not properly delivered"
                 )
         return True
 
@@ -690,14 +670,14 @@ class SampleDeliverer(Deliverer):
     """
 
     def __init__(self, projectid=None, sampleid=None, **kwargs):
-        super(SampleDeliverer, self).__init__(projectid, sampleid, **kwargs)
+        super().__init__(projectid, sampleid, **kwargs)
 
     def create_report(self):
         """Create a sample report and an aggregate report via a system call"""
         logprefix = os.path.abspath(
             self.expand_path(
                 os.path.join(
-                    self.logpath, "{}-{}".format(self.projectid, self.sampleid)
+                    self.logpath, f"{self.projectid}-{self.sampleid}"
                 )
             )
         )
@@ -713,7 +693,7 @@ class SampleDeliverer(Deliverer):
             call_external_command(
                 cl,
                 with_log_files=(logprefix is not None),
-                prefix="{}_sample".format(logprefix),
+                prefix=f"{logprefix}_sample",
             )
             # estimate the delivery date for this sample to 0.5 days ahead
             cl = self.report_aggregate.split(" ")
@@ -723,7 +703,7 @@ class SampleDeliverer(Deliverer):
                     json.dumps(
                         {
                             self.sampleid: {
-                                "delivered": "{}(expected)".format(_timestamp(days=0.5))
+                                "delivered": f"{_timestamp(days=0.5)}(expected)"
                             }
                         }
                     ),
@@ -732,7 +712,7 @@ class SampleDeliverer(Deliverer):
             call_external_command(
                 cl,
                 with_log_files=(logprefix is not None),
-                prefix="{}_aggregate".format(logprefix),
+                prefix=f"{logprefix}_aggregate",
             )
 
     def db_entry(self):
@@ -763,19 +743,15 @@ class SampleDeliverer(Deliverer):
         try:
             if not self.stage_only:
                 logger.info(
-                    "Delivering {} to {}".format(
-                        str(self), self.expand_path(self.deliverypath)
-                    )
+                    f"Delivering {self!s} to {self.expand_path(self.deliverypath)}"
                 )
             else:
-                logger.info("Staging {}".format(str(self)))
+                logger.info(f"Staging {self!s}")
             try:
                 if self.get_analysis_status(sampleentry) != "ANALYZED":
                     if not self.force and not self.ignore_analysis_status:
                         logger.info(
-                            "{} has not finished analysis and will not be delivered".format(
-                                str(self)
-                            )
+                            f"{self!s} has not finished analysis and will not be delivered"
                         )
                         return False
                 if (
@@ -783,9 +759,7 @@ class SampleDeliverer(Deliverer):
                     and not self.force
                 ):
                     logger.info(
-                        "{} has already been delivered. Sample will not be delivered again this time.".format(
-                            str(self)
-                        )
+                        f"{self!s} has already been delivered. Sample will not be delivered again this time."
                     )
                     return True
                 if (
@@ -793,14 +767,12 @@ class SampleDeliverer(Deliverer):
                     and not self.force
                 ):
                     logger.info(
-                        "delivery of {} is already in progress".format(str(self))
+                        f"delivery of {self!s} is already in progress"
                     )
                     return False
                 if self.get_sample_status(sampleentry) == "ABORTED":
                     logger.info(
-                        "{} has been marked as ABORTED and will not be delivered".format(
-                            str(self)
-                        )
+                        f"{self!s} has been marked as ABORTED and will not be delivered"
                     )
                     # set it to delivered as ABORTED samples should not fail the status of a project
                     if self.get_delivery_status(sampleentry):
@@ -810,22 +782,16 @@ class SampleDeliverer(Deliverer):
                     return True
                 if self.get_sample_status(sampleentry) == "FRESH" and not self.force:
                     logger.info(
-                        "{} is marked as FRESH (new unprocessed data is available) and will not be delivered".format(
-                            str(self)
-                        )
+                        f"{self!s} is marked as FRESH (new unprocessed data is available) and will not be delivered"
                     )
                     return False
                 if self.get_delivery_status(sampleentry) == "FAILED":
                     logger.info(
-                        "retrying delivery of previously failed sample {}".format(
-                            str(self)
-                        )
+                        f"retrying delivery of previously failed sample {self!s}"
                     )
             except db.DatabaseError as e:
                 logger.error(
-                    "error '{}' occurred during delivery of {}".format(
-                        str(e), str(self)
-                    )
+                    f"error '{e!s}' occurred during delivery of {self!s}"
                 )
                 raise
             # set the delivery status to in_progress which will also mean that any concurrent deliveries
@@ -840,17 +806,17 @@ class SampleDeliverer(Deliverer):
                 pass
             except Exception as e:
                 logger.warning(
-                    "failed to create reports for {}, reason: {}".format(self, e)
+                    f"failed to create reports for {self}, reason: {e}"
                 )
             # stage the delivery
             if not self.stage_delivery():
                 raise DelivererError("sample was not properly staged")
-            logger.info("{} successfully staged".format(str(self)))
+            logger.info(f"{self!s} successfully staged")
             if not self.stage_only:
                 # perform the delivery
                 if not self.do_delivery():
                     raise DelivererError("sample was not properly delivered")
-                logger.info("{} successfully delivered".format(str(self)))
+                logger.info(f"{self!s} successfully delivered")
                 # set the delivery status in database
                 self.update_delivery_status()
                 # write a delivery acknowledgement to disk
