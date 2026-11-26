@@ -92,9 +92,11 @@ class tsv_generator:
                 )
                 self.samples[sample] = {}
         self.file_pairs_delivered = {}
+        self.tsv_data = []
         self.outdir = self._check_and_load_outdir(outdir)
         self._set_common_details()
         self._load_staged_files()
+        self.generate_and_validate_tsv_data()
 
     def _check_and_load_project(self, project):
         """Get the project document from couchDB"""
@@ -265,8 +267,8 @@ class tsv_generator:
                                 "reverse_file_md5",
                             )
 
-    def generate_tsv_file(self):
-        """Generate TSV file from the string template"""
+    def generate_and_validate_tsv_file(self):
+        """Generate and validate the TSV file against the genomics schema"""
         tsv_file_path = os.path.join(
             self.outdir, f"{self.project_doc['project_id']}_submission.tsv"
         )
@@ -276,12 +278,9 @@ class tsv_generator:
             for file_pair in self.file_pairs_delivered.values():
                 row = {**self.common_details, **file_pair}
                 writer.writerow(row)
+                self.tsv_data.append(row)
         self.LOG.info(f"Generated TSV file at {tsv_file_path}")
-        return tsv_file_path
-
-    def validate_tsv_file(self, tsv_file_path):
-        """Validate the generated TSV file against the genomics schema"""
-        validation_errors = validate_genomics_data(tsv_file_path)
+        validation_errors = validate_genomics_data(tsv_data=self.tsv_data)
         if validation_errors:
             self.LOG.error(
                 f"{len(validation_errors)} validation errors found in the generated TSV file:"
@@ -292,12 +291,13 @@ class tsv_generator:
             )
             with open(self.error_log_file, "a") as f:
                 for error in validation_errors:
-                    message = f"Row {error['row']}: {error['message']}"
+                    message = f"Row {error['row']}, field {error['field']}: {error['message']}"
                     f.write(message + "\n")
                     if self.validation_errors_to_stdout:
                         self.LOG.error(message)
         else:
             self.LOG.info("No validation errors found in the generated TSV file.")
+        return tsv_file_path
 
 
 if __name__ == "__main__":
@@ -352,6 +352,5 @@ if __name__ == "__main__":
         log_file_path=kwargs["log_file_path"],
         validation_errors_to_stdout=kwargs["validation_errors_to_stdout"],
     )
-    tsv_file_path = tsvgen.generate_tsv_file()
-    tsvgen.validate_tsv_file(tsv_file_path)
-    LOG.info(f"Generated TSV files for project {kwargs['project']}")
+    tsv_file_path = tsvgen.generate_and_validate_tsv_file()
+    LOG.info(f"Generated TSV files for project {kwargs['project']} at {tsv_file_path}")
