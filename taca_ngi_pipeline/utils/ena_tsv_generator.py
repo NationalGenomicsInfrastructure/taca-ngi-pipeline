@@ -273,12 +273,12 @@ class tsv_generator:
             self.outdir, f"{self.project_doc['project_id']}_submission.tsv"
         )
         with open(tsv_file_path, "w", newline="") as tsvfile:
-                    writer = csv.DictWriter(tsvfile, fieldnames=template_header, delimiter="\t")
-                    writer.writeheader()
-                    for file_pair in self.file_pairs_delivered.values():
-                        row = {**self.common_details, **file_pair}
-                        writer.writerow(row)
-                        self.tsv_data.append(row)
+            writer = csv.DictWriter(tsvfile, fieldnames=template_header, delimiter="\t")
+            writer.writeheader()
+            for file_pair in self.file_pairs_delivered.values():
+                row = {**self.common_details, **file_pair}
+                writer.writerow(row)
+                self.tsv_data.append(row)
         self.LOG.info(f"Generated TSV file at {tsv_file_path}")
         validation_errors = validate_genomics_data(tsv_data=self.tsv_data)
         if validation_errors:
